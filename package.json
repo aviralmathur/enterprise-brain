@@ -1,0 +1,11 @@
+{
+  "name": "enterprise-brain-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reference implementation of the Enterprise Brain: output ledger, provenance cascade, computed scope, registry, grants, invoke gateway, and two separate fleet trees.",
+  "scripts": {
+    "accept": "node acceptance/run.mjs",
+    "seed": "node acceptance/seed.mjs"
+  }
+}
