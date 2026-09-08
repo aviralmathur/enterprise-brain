@@ -66,6 +66,28 @@ store without moving a file on day one** (the lazy-migration path, §4.6).
 5. Wire your agents in **one at a time** (§5.4).
 </details>
 
+## Check the fleet against itself
+
+Once it is running — and every time you add or retire an agent — run:
+
+```bash
+./validate.sh
+```
+
+It asserts the control plane is complete; every roster row has a routing entry and a memory
+namespace, **and the reverse** (a namespace folder with no roster row is a retired agent still
+on disk); every `owner:` resolves to a real agent or `shared`; `_shared/` is inside its budget,
+and that a budget exists at all; and every `[[wikilink]]` lands. Exit 0 when clean, 1 on any
+error, so it drops straight into CI or a pre-commit hook.
+
+```bash
+SKILLS_DIR=~/.claude/skills ./validate.sh   # also catch a skill that never got substituted
+./validate.sh --example                     # run it against the reference fleet below
+```
+
+Every check corresponds to a defect that was once live in this repo — see
+[`KNOWN-ISSUES.md`](KNOWN-ISSUES.md).
+
 See [`example/`](example/) for a filled-in reference to copy from.
 
 ## The two problems it solves

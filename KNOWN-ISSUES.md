@@ -9,33 +9,19 @@ happened here once — see the amendment on the naming-drift entry below.
 
 ## Open
 
-### 1 · Example fleet is minimal
-`example/` shows Alfred (filled charter) + roster + routing + two memory notes. Athena and
-Scout have roster/routing rows but no charters or notes yet. A worked **cross-lane handoff**
-(Scout hits a product question → routes to Athena → Athena answers in her own namespace) would
-demonstrate §5.3 far better than a third filled charter.
+### 1 · Example fleet is still partly skeletal
+`example/` now ships a complete six-file control plane and a namespace folder per roster row
+(so `./validate.sh --example` passes), but **Athena and Scout still have no charters and no
+notes** — only Alfred's charter is filled. A worked **cross-lane handoff** (Scout hits a product
+question → routes to Athena → Athena answers in her own namespace) would demonstrate §5.3 far
+better than a third filled charter.
 
-### 2 · No validator for the control plane
-Nothing checks the control plane against itself. A `validate.sh` should assert:
-
-- every `roster.md` row has a `routing.md` entry and a `{{MEM_ROOT}}/<agent>/` folder;
-- every namespace folder has a roster row (catches retired agents);
-- no org-level `{{PLACEHOLDER}}` survives in an installed skill — **exempting
-  `templates/`**, which keeps them blank on purpose for onboarding later agents, and the
-  skill README, which documents them;
-- no `owner:` value outside `{agent names} ∪ {shared}`;
-- `_shared/` is under its budget;
-- no broken `[[wikilink]]`.
-
-Every one of those checks would have caught a defect that was live in this repo, which is the
-argument for writing it.
-
-### 3 · Concurrency is unhandled
+### 2 · Concurrency is unhandled
 Two sessions writing the same memory file last-write-wins. No locking, no merge. Low severity
 for one operator working sequentially; real the moment scheduled/unattended runs share a
 namespace. Documented in `memory-model.md` § Write path; not solved.
 
-### 4 · §4.7 restates the librarian contract that `cerebro/SKILL.md` owns
+### 3 · §4.7 restates the librarian contract that `cerebro/SKILL.md` owns
 Single-writer, content-is-data, flat-notes-not-taxonomy and paged-in-on-demand are stated in
 both `enterprise-brain/SKILL.md` §4.7 and `cerebro/SKILL.md` §1/§5/§6. Two homes, and §8 of
 the same document names that as a guaranteed-drift failure. §4.7 should shrink to *why the
@@ -44,12 +30,39 @@ knowledge layer is a third tier* plus a pointer; the contract belongs to the lib
 
 ## Resolved
 
+### ✅ No validator for the control plane — shipped as `validate.sh` 2026-09-08
+Nothing checked the control plane against itself. `./validate.sh` now asserts: the six control
+files exist; every roster row has a routing entry and a namespace folder, and every namespace
+folder has a roster row; every `owner:` resolves to a real agent or `shared`; `_shared/` is
+inside a budget that exists; every `[[wikilink]]` lands; and (with `SKILLS_DIR=…`) no org-level
+placeholder survives in an installed skill — exempting `templates/`, which keeps them blank on
+purpose, and the skill README, which documents them. Exit 0 clean, 1 on error, so it drops into
+CI. Each check has a negative test proving it fires; `--example` validates the reference fleet.
+
+Running it immediately found two more defects, both fixed below. That is the argument for it.
+
+### ✅ The roster and routing templates omitted the librarian — fixed 2026-09-08
+`init.sh` created `$MEM_ROOT/cerebro/`, but the shipped `roster.md` had no Cerebro row and
+`routing.md` had no ingest lane — so a fresh install produced a namespace folder that the
+source of truth for "who exists" did not know about, and a knowledge lane no work could reach.
+SKILL §4.7 describes the routing rule ("ingest / what do we know about X" → the librarian); the
+template never carried it. Found by `validate.sh` on its first run against a clean install.
+
+### ✅ Illustrative roster rows parsed as real agents — fixed 2026-09-08
+`roster.md`'s example rows use `<name>` for the namespace. `init.sh` fills only `{{...}}`, so
+after substitution those rows contain no marker distinguishing them from real ones, and a fresh
+install validated as three agents whose namespaces did not exist. `validate.sh` now skips any
+row with an `<angle-bracket>` placeholder in its name or namespace.
+
 ### ✅ `init.sh` overwrote an existing `MEMORY.md` — fixed 2026-09-08
 The script guarded `_control/` but `cp`-ed over `$MEM_ROOT/MEMORY.md` and truncated
 `knowledge-log.md` unconditionally — while the README's headline path is *"adopt on top of an
 existing flat store"* with `./init.sh` as the quickstart. Following both destroyed the index.
 Now: `MEMORY.md` is left untouched if present (with a printed hint on what to add by hand),
-`FORCE=1` takes a `.bak` first, and the knowledge log is create-if-absent, never truncated.
+`FORCE=1` saves a timestamped `.orig` first, and the knowledge log is create-if-absent, never
+truncated. The backup is deliberately **not** named `.bak`: `subst()` runs `sed -i.bak` and
+then deletes exactly that filename, so a `.bak` backup was silently eaten. Caught by testing
+the fix rather than re-reading it.
 
 ### ✅ `init.sh` did not create `_unassigned/` — fixed 2026-09-08
 Specified in SKILL §4.1, §4.3, §4.6 step 1 and §7, and linked from the `MEMORY.md` template's

@@ -16,6 +16,7 @@ quietly duplicate each other.
 | "Where does this go bigger", bets, kill/park calls | Strategy agent |
 | Friction inside *our own* process | Inward-facing agent |
 | Inbox / brief / triage / "what did I miss" | Chief-of-staff orchestrator |
+| "Ingest this / build the knowledge base / what do we know about X" | **Cerebro** (librarian) |
 | **Anything else** | **Chief-of-staff orchestrator** |
 
 ## Confusable pairs — write the boundary down, with an example of each mistake
