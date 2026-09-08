@@ -59,9 +59,9 @@ let currentPhase = 'general';
 
 export function phase(name) { currentPhase = name; }
 
-export function check(name, fn) {
+export async function check(name, fn) {
   try {
-    const detail = fn();
+    const detail = await fn();
     results.push({ phase: currentPhase, name, pass: true, detail: detail ?? null });
   } catch (err) {
     results.push({ phase: currentPhase, name, pass: false, detail: err.message });

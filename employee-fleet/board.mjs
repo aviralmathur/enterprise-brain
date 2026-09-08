@@ -12,12 +12,15 @@ import { newOutput } from '../brain/schema.mjs';
 import { describe } from '../brain/scope.mjs';
 
 export class FleetBoard {
-  constructor(path, { fleet, owner, ledger, platformBoard = null }) {
+  // `platformLink` is either a DirectPlatformLink (same process) or a
+  // UrlPlatformLink (the platform board is a URL away). The board does not care
+  // which - that is the point of keeping the coupling to two methods.
+  constructor(path, { fleet, owner, ledger, platformLink = null }) {
     this.path = path;
     this.fleet = fleet;
     this.owner = owner;
     this.ledger = ledger;
-    this.platformBoard = platformBoard;
+    this.platformLink = platformLink;
   }
 
   load() { return readDoc(this.path, { items: {}, seq: 0 }); }
@@ -106,12 +109,13 @@ export class FleetBoard {
   }
 
   // The one coupling to the platform board (D18): a request leaves, a status returns.
-  requestGrant(actor, { agent, target, justification }) {
+  // Async because the platform board is usually a URL away.
+  async requestGrant(actor, { agent, target, justification }) {
     const guard = this.assertOwner(actor);
     if (!guard.ok) return guard;
-    if (!this.platformBoard) return { ok: false, errors: ['no platform board wired'] };
+    if (!this.platformLink) return { ok: false, errors: ['no platform link configured - set the platform board URL'] };
 
-    const sub = this.platformBoard.submit({
+    const sub = await this.platformLink.submit({
       type: 'grant_request',
       subject: `${this.fleet}/${agent} -> ${target}`,
       requester: this.owner,
@@ -132,10 +136,10 @@ export class FleetBoard {
   }
 
   // Status only - the employee never sees the platform queue (D18).
-  grantStatus(id) {
+  async grantStatus(id) {
     const item = this.get(id);
     if (!item?.grant_request) return { ok: false, reason: 'no grant request on this item' };
-    return this.platformBoard.statusFor(this.owner, item.grant_request);
+    return this.platformLink.status(this.owner, item.grant_request);
   }
 
   get(id) { return this.load().items[id] ?? null; }

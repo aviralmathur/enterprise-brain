@@ -1,7 +1,11 @@
-// Assembly. The only file that knows about every part, kept deliberately small
-// so the dependency direction is visible: employee fleet and platform fleet both
-// depend on the brain; the brain depends on neither (D12).
-import { join } from 'node:path';
+// Assembly. Two builders, because there are two workspaces with two owners.
+//
+//   buildPlatform() — everything the platform team owns and stores
+//   buildFleet()    — one employee's fleet, stored in that employee's own workspace
+//
+// A fleet is handed the platform's *interfaces*, never its storage paths. The only
+// things it can write on the platform side are an output through the approve gate
+// and a grant request through the link.
 import { rmSync, existsSync } from 'node:fs';
 
 import { Ledger } from './brain/ledger.mjs';
@@ -10,49 +14,50 @@ import { Query } from './brain/query.mjs';
 import { createLocalProvider } from './brain/identity.mjs';
 import { Telemetry } from './brain/telemetry.mjs';
 import { QualityGates } from './brain/gates.mjs';
+import { writeDoc } from './brain/store.mjs';
 
 import { Registry } from './platform-fleet/registry.mjs';
+import { FleetRoster } from './platform-fleet/fleet-roster.mjs';
 import { Grants } from './platform-fleet/grants.mjs';
 import { Gateway } from './platform-fleet/gateway.mjs';
 import { PlatformBoard } from './platform-fleet/board.mjs';
+import { createPlatformBoardHandler, fetchAgainst } from './platform-fleet/handler.mjs';
 import { all as connectors } from './platform-fleet/connectors/index.mjs';
 
-import { Fleets } from './employee-fleet/fleet.mjs';
 import { LocalEnforcement } from './employee-fleet/enforce.mjs';
 import { FleetBoard } from './employee-fleet/board.mjs';
+import { FleetTools } from './employee-fleet/tools.mjs';
+import { DirectPlatformLink, UrlPlatformLink } from './employee-fleet/platform-link.mjs';
 
-import { writeDoc } from './brain/store.mjs';
+import { platformWorkspace, employeeWorkspace } from './workspace.mjs';
 
-export function build({ root = 'data', fresh = false, idp = null } = {}) {
-  const p = (name) => join(root, name);
+export function buildPlatform({ ws, fresh = false, idp = null } = {}) {
+  const paths = ws ?? platformWorkspace();
+  if (fresh && existsSync(paths.root)) rmSync(paths.root, { recursive: true, force: true });
 
-  if (fresh && existsSync(root)) rmSync(root, { recursive: true, force: true });
+  // The IdP sits outside the brain. It is re-read on every resolve; nothing is copied in.
+  if (idp) writeDoc(paths.idp, idp);
+  const identity = createLocalProvider(paths.idp);
 
-  // The IdP is conceptually OUTSIDE the brain. It lives in its own file and the
-  // brain re-reads it on every resolve - it never copies entitlements in.
-  const idpPath = p('idp/directory.json');
-  if (idp) writeDoc(idpPath, idp);
-  const identity = createLocalProvider(idpPath);
+  const audit = new Audit(paths.audit);
+  const registry = new Registry(paths.registry);
+  const fleetRoster = new FleetRoster(paths.fleetRoster, identity);
 
-  const audit = new Audit(p('audit.jsonl'));
-  const registry = new Registry(p('registry.json'));
-  const fleets = new Fleets(p('fleets.json'), identity);
-
-  const ledger = new Ledger(p('ledger.jsonl'), {
+  const ledger = new Ledger(paths.ledger, {
     declaredScopeOf: (agentId) => registry.declaredScopeOf(agentId),
     isEnterpriseAgent: (agentId) => registry.isEnterpriseAgent(agentId),
-    fleetOwner: (fleetId) => fleets.owner(fleetId),
+    fleetOwner: (fleetId) => fleetRoster.owner(fleetId),
   });
 
-  const grants = new Grants(p('grants.json'), audit);
-  const platformBoard = new PlatformBoard(p('platform-board.json'), audit);
+  const grants = new Grants(paths.grants, audit);
+  const board = new PlatformBoard(paths.board, audit);
 
   const query = new Query(ledger, {
     identity,
     audit,
     resolvers: {
       accessList: (agentId) => registry.accessList(agentId),
-      fleetOwner: (fleetId) => fleets.owner(fleetId),
+      fleetOwner: (fleetId) => fleetRoster.owner(fleetId),
       isEnterpriseAgent: (agentId) => registry.isEnterpriseAgent(agentId),
     },
   });
@@ -61,15 +66,62 @@ export function build({ root = 'data', fresh = false, idp = null } = {}) {
   const telemetry = new Telemetry(audit, registry, ledger);
   const gates = new QualityGates(ledger);
 
-  // Each employee fleet gets its own board file. Two fleets never share one.
-  const fleetBoard = (fleet, owner) =>
-    new FleetBoard(p(`fleet-boards/${fleet}.json`), { fleet, owner, ledger, platformBoard });
-
-  const enforcement = (opts = {}) => new LocalEnforcement({ registry, grants, fleets, ...opts });
+  // What a platform team mounts on the server they already run, so fleets can
+  // reach the board over a URL. We do not start a server here.
+  const boardHandler = createPlatformBoardHandler(board);
 
   return {
-    paths: { root, idpPath, ledger: p('ledger.jsonl'), audit: p('audit.jsonl') },
-    identity, audit, ledger, query, registry, grants, gateway, platformBoard,
-    fleets, telemetry, gates, fleetBoard, enforcement, connectors,
+    kind: 'platform',
+    paths, identity, audit, ledger, query, registry, fleetRoster,
+    grants, gateway, board, telemetry, gates, connectors, boardHandler,
+  };
+}
+
+// One employee's fleet, in that employee's own workspace.
+// `link` is 'direct' (same process) or the platform board's URL.
+export function buildFleet({ platform, employee, fleet, ws, workspaceRoot, link = 'direct', fresh = false } = {}) {
+  const paths = ws ?? employeeWorkspace(employee, workspaceRoot);
+  if (fresh && existsSync(paths.root)) rmSync(paths.root, { recursive: true, force: true });
+
+  const platformLink = link === 'direct'
+    ? new DirectPlatformLink(platform.board)
+    // A real deployment passes a URL. fetchAgainst() lets a single-machine run
+    // exercise the same code path without standing up a server.
+    : new UrlPlatformLink(link, {
+      fetchImpl: platform.boardHandler ? fetchAgainst(platform.boardHandler) : undefined,
+    });
+
+  const board = new FleetBoard(paths.board, {
+    fleet, owner: employee, ledger: platform.ledger, platformLink,
+  });
+
+  const tools = new FleetTools(paths, {
+    registry: platform.registry,
+    grants: platform.grants,
+    fleetRoster: platform.fleetRoster,
+  });
+
+  const enforcement = (opts = {}) => new LocalEnforcement({
+    registry: platform.registry,
+    grants: platform.grants,
+    fleets: platform.fleetRoster,
+    ...opts,
+  });
+
+  return { kind: 'fleet', employee, fleet, paths, board, tools, platformLink, enforcement };
+}
+
+// Single-machine composition used by the demo and the acceptance suite.
+export function build({ root = 'data', fresh = false, idp = null } = {}) {
+  const platform = buildPlatform({ ws: platformWorkspace(`${root}/platform`), fresh, idp });
+  return {
+    ...platform,
+    // Readability at call sites; the roster lives on the platform side.
+    fleets: platform.fleetRoster,
+    workspaceRoot: `${root}/workspaces`,
+    fleet: (employee, fleetId, opts = {}) => buildFleet({
+      platform, employee, fleet: fleetId,
+      workspaceRoot: `${root}/workspaces`, fresh, ...opts,
+    }),
   };
 }

@@ -1,9 +1,13 @@
-// Employee fleet registration. Free to create (D2), but registered - because
-// granting invoke to "a named agent inside a named fleet" (D4) requires the
-// enterprise to be able to address that agent, which requires stable ids.
+// The fleet roster. An employee initiates registration and needs nobody's
+// permission to do it (D2) — but the roster itself is stored on the PLATFORM
+// side, because granting invoke to "a named agent inside a named fleet" (D4)
+// requires the platform to be able to address that agent.
+//
+// This is the single exception to the workspace split: the roster is shared,
+// everything else about a fleet stays in the employee's own workspace.
 import { readDoc, writeDoc } from '../brain/store.mjs';
 
-export class Fleets {
+export class FleetRoster {
   constructor(path, identity) { this.path = path; this.identity = identity; }
 
   load() { return readDoc(this.path, { fleets: {} }); }

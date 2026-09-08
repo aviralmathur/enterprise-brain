@@ -37,9 +37,39 @@ basis: intersection of 2 input(s); narrowest was 1 named: sarah
 → restricted data cannot be laundered into a wider audience
 ```
 
+## Storage: two workspaces, two owners
+
+The split is a privacy boundary, not a convenience.
+
+| | Platform workspace | Employee workspace |
+|---|---|---|
+| Owner | the platform team | one employee |
+| Holds | ledger, registry, grants, platform board, audit, fleet roster | that fleet's board, tool choices, connection descriptor |
+| Who can read it | the platform team | that employee only |
+
+Two employees never share a file. The platform team cannot read a fleet board.
+The one thing that lives on the platform side despite describing a fleet is the
+**roster** (ids, owner, agent ids) — granting invoke to *a named agent inside a
+named fleet* requires the platform to be able to address that agent.
+
+## The transport is not ours
+
+The person building a fleet installs whatever MCP components their harness
+provides. This repo does not implement or start a transport. What it does instead:
+
+1. **asks which tools the fleet wants**, and sorts them into what the employee
+   already has via their harness (no grant needed — it authenticates as them)
+   versus what needs the platform team's say-so
+2. **emits a connection descriptor** naming the ledger, gateway and platform-board
+   endpoints, which the fleet builder points their harness at
+
+The platform board is reached over a URL or linked directly in-process — the same
+two methods either way, so a fleet cannot tell the difference. `handler.mjs` is a
+pure request handler the platform team mounts on a server they already run.
+
 ## Layout
 
-Three trees. The dependency direction is the point: both fleets depend on the
+Four trees. The dependency direction is the point: both fleets depend on the
 brain; the brain depends on neither, and contains nothing harness-specific.
 
 ```
@@ -56,19 +86,24 @@ brain/                  the ledger and everything harness-agnostic (D12)
 
 platform-fleet/         owned and governed by the platform team (D1)
   registry.mjs          agent manifests, scope review, lifecycle
+  fleet-roster.mjs      the one shared fact about a fleet: its addressable agents
   grants.mjs            time-boxed invoke grants
   gateway.mjs           the only enforcement that counts (D13)
   board.mjs             thin review queue (D19)
+  handler.mjs           mountable request handler — two routes, no enumeration
   connectors/           ── SEAM: ServiceNow / Agentforce / Copilot adapters
 
 employee-fleet/         self-serve, free to create (D2)
-  fleet.mjs             registration; stable agent ids
+  tools.mjs             which tools the fleet wants; the connection descriptor
+  platform-link.mjs     direct or URL — the board cannot tell which
   enforce.mjs           advisory local check — worthless against intent
   board.mjs             private cockpit; approve == publish
 
+kit/skills/             what an employee installs — six skills, one file each
 spec/contracts.md       the Phase 0 contracts
-acceptance/run.mjs      27 checks, one per exit test or decision
-wire.mjs                assembly; the only file that knows every part
+workspace.mjs           storage ownership: platform vs employee
+acceptance/run.mjs      33 checks, one per exit test or decision
+wire.mjs                buildPlatform() and buildFleet()
 ```
 
 ## The two seams
@@ -106,7 +141,7 @@ fields are still absent, so the deferral stays honest.
 
 ## What the acceptance suite proves
 
-27 checks, grouped by the phase whose exit test they are.
+33 checks, grouped by the phase whose exit test they are.
 
 | Phase | Proves |
 |---|---|
@@ -116,6 +151,7 @@ fields are still absent, so the deferral stays honest.
 | 4 | a fleet consumes on first run with zero manual grants; an ungranted invoke is refused by the gateway; **disabling the local check changes nothing**; approve is the publish gate; nobody drives someone else's board |
 | 5 | granted invokes, identical ungranted refused, both audited; every vendor write terminates at a human; the gateway sheds rather than passing a stampede; revocation is immediate; the boards share only the grant request |
 | 6 | status comes from a check that can fail; telemetry surfaces unused agents; conflicting answers are surfaced, never resolved |
+| Workspaces | employee and platform storage are separate trees; two employees never share a file; tool selection sorts harness from enterprise; the descriptor names all three endpoints; the URL link behaves identically to the direct one; **the URL route cannot be walked to read someone else's request** |
 
 A phase that cannot pass its check has not shipped, whatever the code says.
 
@@ -127,11 +163,18 @@ Honest list, in the order they would bite.
    and inspectable; not concurrent. A real deployment needs a database with the
    same append-only semantics — the `Ledger` interface is what to preserve.
 2. **No real IAM or vendor tenancy.** See the seams above.
-3. **Fleet-board privacy is enforced by an owner check**, not by separate
-   storage per tenant. Correct behaviour, wrong isolation for production.
-4. **Subscriptions (component 16) are not built.** Phase 6, and the only
-   component in the plan with no code here.
-5. **Load shedding is a per-minute rate limit and an in-flight cap.** Real
-   shedding needs a queue with priorities.
-6. **`conflicts()` compares `body.value` by identity.** Real conflict detection
+3. **Fleet-board privacy is a path split plus an owner check.** Two employees have
+   separate files, which is the right shape, but nothing stops a process with
+   filesystem access from reading another workspace. Real isolation is per-tenant
+   storage with its own credentials.
+4. **Subscriptions (component 16) are not built.** Phase 6, and the only component
+   in the plan with no code here.
+5. **No human UI.** Both boards are libraries over JSON files. Nobody can *open*
+   either one — a person interacting with the brain still needs a surface built.
+6. **Nothing is served.** `handler.mjs` is mountable but unmounted; the ledger and
+   gateway are in-process calls. A fleet's harness has nothing to connect to until
+   the platform team hosts them.
+7. **Load shedding is a per-minute rate limit and an in-flight cap.** Real shedding
+   needs a queue with priorities.
+8. **`conflicts()` compares `body.value` by identity.** Real conflict detection
    needs per-kind comparators.

@@ -1,6 +1,7 @@
 // The roadmap's exit tests, as runnable checks.
 // Each check names the phase or decision it proves. A phase that cannot pass its
 // check has not shipped, whatever the code says.
+import { existsSync, readdirSync } from 'node:fs';
 import { readLines, readDoc } from '../brain/store.mjs';
 import { newOutput } from '../brain/schema.mjs';
 import { assertNoStoredEntitlements } from '../brain/identity.mjs';
@@ -15,7 +16,7 @@ const soon = () => new Date(Date.now() + 3600_000).toISOString();
 // ───────────────────────────── PHASE 1 ─────────────────────────────
 phase('Phase 1 — output ledger and provenance cascade');
 
-check('correcting an upstream output invalidates everything derived from it', () => {
+await check('correcting an upstream output invalidates everything derived from it', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh-metrics', connectors: [], scope: { type: 'org' } }));
 
@@ -46,7 +47,7 @@ check('correcting an upstream output invalidates everything derived from it', ()
   }
 });
 
-check('a deriving agent cannot widen its own output scope (D7)', () => {
+await check('a deriving agent cannot widen its own output scope (D7)', () => {
   const w = world();
   onboard(w, manifest({ id: 'narrow', connectors: [], scope: { type: 'list', members: ['sarah'] } }));
   onboard(w, manifest({ id: 'wide', connectors: [], scope: { type: 'org' }, produces: ['metric'] }));
@@ -71,7 +72,7 @@ check('a deriving agent cannot widen its own output scope (D7)', () => {
   return `computed ${describe(d.scope)}; widening refused and routed to ${describe(widen.route_to)}`;
 });
 
-check('an output built on a harness connector is fleet-private (D11)', () => {
+await check('an output built on a harness connector is fleet-private (D11)', () => {
   const w = world();
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'inbox' }] });
 
@@ -86,7 +87,7 @@ check('an output built on a harness connector is fleet-private (D11)', () => {
   return w.ledger.get('H').scope_basis;
 });
 
-check('deletion is a tombstone plus a cascade, never a hard delete (D15)', () => {
+await check('deletion is a tombstone plus a cascade, never a hard delete (D15)', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh', connectors: [], scope: { type: 'org' } }));
   enterpriseOutput(w, { id: 'P', agent: 'wh', subject: 'pii', value: 'personal' });
@@ -105,7 +106,7 @@ check('deletion is a tombstone plus a cascade, never a hard delete (D15)', () =>
   return `tombstoned P, cascaded to ${res.cascaded.join(', ')}`;
 });
 
-check("a departed employee's outputs survive frozen (D16)", () => {
+await check("a departed employee's outputs survive frozen (D16)", () => {
   const w = world();
   w.fleets.register({ fleet: 'f_dev', owner: 'sarah', agents: [{ id: 'a' }] });
   w.ledger.publish(newOutput({
@@ -126,7 +127,7 @@ check("a departed employee's outputs survive frozen (D16)", () => {
 // ───────────────────────────── PHASE 2 ─────────────────────────────
 phase('Phase 2 — identity, consume path, audit');
 
-check('two employees ask the same question and correctly get different answers', () => {
+await check('two employees ask the same question and correctly get different answers', () => {
   const w = world();
   onboard(w, manifest({ id: 'both', connectors: [], scope: { type: 'list', members: ['sarah', 'raj'] }, produces: ['metric'] }));
   onboard(w, manifest({ id: 'sarah-only', connectors: [], scope: { type: 'list', members: ['sarah'] }, produces: ['metric'] }));
@@ -146,7 +147,7 @@ check('two employees ask the same question and correctly get different answers',
   return `sarah ${sarah.answers.length}, raj ${raj.answers.length}, ${reads.length} reads audited`;
 });
 
-check('an answer carries provenance, status and freshness', () => {
+await check('an answer carries provenance, status and freshness', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh', connectors: [], scope: { type: 'org' } }));
   enterpriseOutput(w, { id: 'A', agent: 'wh', subject: 'q4', value: 7 });
@@ -163,7 +164,7 @@ check('an answer carries provenance, status and freshness', () => {
   return `freshness=${r.freshness} status=${r.status} scope=${r.scope}`;
 });
 
-check('the brain stores no entitlements anywhere (kill-risk 2)', () => {
+await check('the brain stores no entitlements anywhere (kill-risk 2)', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh', connectors: [], scope: { type: 'org' } }));
   enterpriseOutput(w, { id: 'A', agent: 'wh', subject: 'q4', value: 1 });
@@ -173,20 +174,20 @@ check('the brain stores no entitlements anywhere (kill-risk 2)', () => {
   const persisted = [
     ...readLines(w.paths.ledger),
     ...readLines(w.paths.audit),
-    readDoc(`${w.paths.root}/registry.json`, {}),
-    readDoc(`${w.paths.root}/grants.json`, {}),
-    readDoc(`${w.paths.root}/fleets.json`, {}),
+    readDoc(w.paths.registry, {}),
+    readDoc(w.paths.grants, {}),
+    readDoc(w.paths.fleetRoster, {}),
   ];
   const offenders = assertNoStoredEntitlements(persisted);
   assertEqual(offenders, [], `entitlements leaked into brain storage at ${offenders.join(', ')}`);
 
   // And prove they DO live in the IdP, outside the brain.
-  const idp = readDoc(w.paths.idpPath, {});
+  const idp = readDoc(w.paths.idp, {});
   assert(idp.employees.sarah.entitlements.length > 0, 'the IdP is where entitlements live');
   return 'brain persists only employee ids; entitlements resolve live from the IdP';
 });
 
-check('a former employee cannot consume', () => {
+await check('a former employee cannot consume', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh', connectors: [], scope: { type: 'org' } }));
   enterpriseOutput(w, { id: 'A', agent: 'wh', subject: 'q4', value: 1 });
@@ -199,7 +200,7 @@ check('a former employee cannot consume', () => {
 // ───────────────────────────── PHASE 3 ─────────────────────────────
 phase('Phase 3 — enterprise onboarding, registry, first connector');
 
-check('onboarding a scoped agent takes a manifest and a review, no platform code', () => {
+await check('onboarding a scoped agent takes a manifest and a review, no platform code', () => {
   const w = world();
   const { review, result } = onboard(w, manifest());
   assert(result.ok, JSON.stringify(result.errors));
@@ -209,7 +210,7 @@ check('onboarding a scoped agent takes a manifest and a review, no platform code
   return `published v1 with ${review.findings.length} advisory finding`;
 });
 
-check('scope review blocks org-wide reach over a service-account connector (D6)', () => {
+await check('scope review blocks org-wide reach over a service-account connector (D6)', () => {
   const w = world();
   const { review, result } = onboard(w, manifest({ id: 'snow-wide', scope: { type: 'org' } }));
   assert(review.blocking, 'review must block');
@@ -217,7 +218,7 @@ check('scope review blocks org-wide reach over a service-account connector (D6)'
   return review.findings[0].remedy;
 });
 
-check('the same agent is publishable as platform_internal', () => {
+await check('the same agent is publishable as platform_internal', () => {
   const w = world();
   const { review, result } = onboard(w, manifest({ id: 'snow-internal', scope: { type: 'org' }, employee_reachable: false }));
   assert(!review.blocking, 'no longer blocking');
@@ -226,7 +227,7 @@ check('the same agent is publishable as platform_internal', () => {
   return 'platform-internal: outputs get published, the agent is not exposed';
 });
 
-check('retiring an agent marks its outputs stale', () => {
+await check('retiring an agent marks its outputs stale', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh', connectors: [], scope: { type: 'org' } }));
   enterpriseOutput(w, { id: 'A', agent: 'wh', subject: 'q4', value: 1 });
@@ -242,15 +243,15 @@ check('retiring an agent marks its outputs stale', () => {
   return `retired wh, marked ${res.outputs_marked.join(', ')}`;
 });
 
-check('the platform board is thin: items, assignee, decision, audit record (D19)', () => {
+await check('the platform board is thin: items, assignee, decision, audit record (D19)', () => {
   const w = world();
-  const sub = w.platformBoard.submit({ type: 'agent_onboarding', subject: 'incident-summary', requester: 'priya' });
+  const sub = w.board.submit({ type: 'agent_onboarding', subject: 'incident-summary', requester: 'priya' });
   assert(sub.ok, 'submit');
-  w.platformBoard.assign(sub.item.id, 'priya');
-  const dec = w.platformBoard.decide(sub.item.id, { decision: 'approved', by: 'priya', note: 'scope reviewed' });
+  w.board.assign(sub.item.id, 'priya');
+  const dec = w.board.decide(sub.item.id, { decision: 'approved', by: 'priya', note: 'scope reviewed' });
   assert(dec.ok, 'decide');
 
-  const item = w.platformBoard.get(sub.item.id);
+  const item = w.board.get(sub.item.id);
   assertEqual(Object.keys(item).sort(), [
     'assignee', 'decided_at', 'decided_by', 'decision', 'id', 'note',
     'payload', 'requester', 'state', 'subject', 'submitted_at', 'type',
@@ -264,7 +265,7 @@ check('the platform board is thin: items, assignee, decision, audit record (D19)
 // ───────────────────────────── PHASE 4 ─────────────────────────────
 phase('Phase 4 — employee fleet self-serve');
 
-check('an employee stands up a fleet and consumes with nothing granted by hand', () => {
+await check('an employee stands up a fleet and consumes with nothing granted by hand', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh', connectors: [], scope: { type: 'list', members: ['sarah'] } }));
   enterpriseOutput(w, { id: 'A', agent: 'wh', subject: 'q4', value: 5 });
@@ -280,7 +281,7 @@ check('an employee stands up a fleet and consumes with nothing granted by hand',
   return 'consumed on first run with zero manual grants';
 });
 
-check('an ungranted invoke is refused by the gateway, not by the model (D13)', () => {
+await check('an ungranted invoke is refused by the gateway, not by the model (D13)', () => {
   const w = world();
   onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
@@ -295,12 +296,12 @@ check('an ungranted invoke is refused by the gateway, not by the model (D13)', (
   return res.reason;
 });
 
-check('bypassing local enforcement changes nothing — the gateway still refuses', () => {
+await check('bypassing local enforcement changes nothing — the gateway still refuses', () => {
   const w = world();
   onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
 
-  const off = w.enforcement({ enabled: false });
+  const off = w.fleet('sarah', 'f_sarah').enforcement({ enabled: false });
   const local = off.check({ employee: 'sarah', via: { fleet: 'f_sarah', agent: 'analyst' }, target: 'snow' });
   assert(local.allow === true, 'a disabled local check waves it through');
   assert(local.advisory === true, 'and says it is only advisory');
@@ -313,10 +314,10 @@ check('bypassing local enforcement changes nothing — the gateway still refuses
   return 'local bypass permitted; authoritative refusal still applied';
 });
 
-check('the fleet board approve step is the publish gate (D9)', () => {
+await check('the fleet board approve step is the publish gate (D9)', () => {
   const w = world();
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
-  const board = w.fleetBoard('f_sarah', 'sarah');
+  const board = w.fleet('sarah', 'f_sarah').board;
 
   const item = board.instruct('sarah', 'summarise my inbox for the week').item;
   board.propose(item.id, {
@@ -336,10 +337,10 @@ check('the fleet board approve step is the publish gate (D9)', () => {
   return `approve published ${res.output.id} at ${describe(res.output.scope)}`;
 });
 
-check("another employee cannot drive someone else's fleet board (D10)", () => {
+await check("another employee cannot drive someone else's fleet board (D10)", () => {
   const w = world();
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
-  const board = w.fleetBoard('f_sarah', 'sarah');
+  const board = w.fleet('sarah', 'f_sarah').board;
   const item = board.instruct('sarah', 'private draft').item;
   const res = board.approve('raj', item.id);
   assert(!res.ok, 'raj must not be able to approve on sarah\'s board');
@@ -349,7 +350,7 @@ check("another employee cannot drive someone else's fleet board (D10)", () => {
 // ───────────────────────────── PHASE 5 ─────────────────────────────
 phase('Phase 5 — invoke, gated');
 
-check('a granted agent invokes; an identical ungranted agent is refused; both audited', () => {
+await check('a granted agent invokes; an identical ungranted agent is refused; both audited', () => {
   const w = world();
   onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah', 'raj'] } }));
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
@@ -379,7 +380,7 @@ check('a granted agent invokes; an identical ungranted agent is refused; both au
   return `granted -> ${ok.published}; ungranted refused; 2 audit rows`;
 });
 
-check('every vendor write terminates at a human approval', () => {
+await check('every vendor write terminates at a human approval', () => {
   const w = world();
   onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
@@ -398,7 +399,7 @@ check('every vendor write terminates at a human approval', () => {
   return 'injection chain terminates: hostile content cannot reach a vendor write unattended';
 });
 
-check('the gateway sheds rather than passing a stampede to the vendor', () => {
+await check('the gateway sheds rather than passing a stampede to the vendor', () => {
   const w = world();
   onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] }, rate_limit: { per_minute: 2 } }));
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
@@ -418,7 +419,7 @@ check('the gateway sheds rather than passing a stampede to the vendor', () => {
   return third.reason;
 });
 
-check('a revoked grant stops working immediately', () => {
+await check('a revoked grant stops working immediately', () => {
   const w = world();
   onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
@@ -435,25 +436,25 @@ check('a revoked grant stops working immediately', () => {
   return res.reason;
 });
 
-check('the grant request is the only coupling between the two boards (D18)', () => {
+await check('the grant request is the only coupling between the two boards (D18)', async () => {
   const w = world();
   onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
   w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
-  const board = w.fleetBoard('f_sarah', 'sarah');
+  const board = w.fleet('sarah', 'f_sarah').board;
 
-  const req = board.requestGrant('sarah', { agent: 'analyst', target: 'snow', justification: 'weekly incident review' });
+  const req = await board.requestGrant('sarah', { agent: 'analyst', target: 'snow', justification: 'weekly incident review' });
   assert(req.ok, 'request leaves the fleet board');
-  assertEqual(w.platformBoard.queue().length, 1, 'and lands in the platform queue');
+  assertEqual(w.board.queue().length, 1, 'and lands in the platform queue');
 
   // The requester sees only their own item's status.
-  const mine = w.platformBoard.statusFor('sarah', req.platform_item);
+  const mine = w.board.statusFor('sarah', req.platform_item);
   assert(mine.ok && mine.state === 'open', 'own status is visible');
-  const theirs = w.platformBoard.statusFor('raj', req.platform_item);
+  const theirs = w.board.statusFor('raj', req.platform_item);
   assert(!theirs.ok, 'someone else cannot read it');
 
-  w.platformBoard.assign(req.platform_item, 'priya');
-  w.platformBoard.decide(req.platform_item, { decision: 'approved', by: 'priya', note: 'time-boxed 30d' });
-  const after = board.grantStatus(req.item.id);
+  w.board.assign(req.platform_item, 'priya');
+  w.board.decide(req.platform_item, { decision: 'approved', by: 'priya', note: 'time-boxed 30d' });
+  const after = await board.grantStatus(req.item.id);
   assertEqual(after.decision, 'approved', 'the decision returns as a status');
   return 'request out, status back; neither side reads the other board';
 });
@@ -461,7 +462,7 @@ check('the grant request is the only coupling between the two boards (D18)', () 
 // ───────────────────────────── PHASE 6 ─────────────────────────────
 phase('Phase 6 — make it compound');
 
-check('an output status is set by a check that can fail, not by a claim', () => {
+await check('an output status is set by a check that can fail, not by a claim', () => {
   const w = world();
   onboard(w, manifest({ id: 'wh', connectors: [], scope: { type: 'org' } }));
   enterpriseOutput(w, { id: 'G1', agent: 'wh', subject: 'revenue', value: -5 });
@@ -480,7 +481,7 @@ check('an output status is set by a check that can fail, not by a claim', () => 
   return 'status is evidence, not assertion';
 });
 
-check('telemetry surfaces an unused agent as a deprecation candidate', () => {
+await check('telemetry surfaces an unused agent as a deprecation candidate', () => {
   const w = world();
   onboard(w, manifest({ id: 'used', connectors: [], scope: { type: 'org' } }));
   onboard(w, manifest({ id: 'unused', connectors: [], scope: { type: 'org' } }));
@@ -493,7 +494,7 @@ check('telemetry surfaces an unused agent as a deprecation candidate', () => {
   return `candidates: ${dead.map((d) => d.agent).join(', ')}`;
 });
 
-check('conflicting live answers are surfaced, never resolved', () => {
+await check('conflicting live answers are surfaced, never resolved', () => {
   const w = world();
   onboard(w, manifest({ id: 'a1', connectors: [], scope: { type: 'org' }, produces: ['metric'] }));
   onboard(w, manifest({ id: 'a2', connectors: [], scope: { type: 'org' }, produces: ['metric'] }));
@@ -505,6 +506,130 @@ check('conflicting live answers are surfaced, never resolved', () => {
   assertEqual(res.outputs.sort(), ['X1', 'X2'], 'both sides are named');
   assertEqual(w.ledger.conflicts().length, 1, 'and the ledger agrees');
   return res.note;
+});
+
+// ──────────────────── WORKSPACES, TOOLS, PLATFORM LINK ────────────────────
+phase('Workspace separation, tool selection, platform link');
+
+await check('employee storage and platform storage are separate trees', () => {
+  const w = world();
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+  const f = w.fleet('sarah', 'f_sarah');
+  f.board.instruct('sarah', 'private draft nobody else should see');
+
+  assert(existsSync(f.paths.board), 'the fleet board is written');
+  assert(f.paths.board.includes('sarah'), 'inside a path scoped to that employee');
+  assert(!f.paths.board.startsWith(w.paths.root), `the fleet board must not live under the platform root (${w.paths.root})`);
+
+  // Nothing on the platform side names the board file.
+  const platformFiles = readdirSync(w.paths.root);
+  assert(!platformFiles.some((n) => n.includes('fleet-board')), 'no fleet board on the platform side');
+  return `platform: ${w.paths.root} | employee: ${f.paths.root}`;
+});
+
+await check('two employees never share a storage file', () => {
+  const w = world();
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'a' }] });
+  w.fleets.register({ fleet: 'f_raj', owner: 'raj', agents: [{ id: 'a' }] });
+  const a = w.fleet('sarah', 'f_sarah');
+  const b = w.fleet('raj', 'f_raj');
+  assert(a.paths.board !== b.paths.board, 'different board files');
+  assert(a.paths.root !== b.paths.root, 'different workspace roots');
+  a.board.instruct('sarah', 'mine');
+  b.board.instruct('raj', 'his');
+  assertEqual(a.board.all().length, 1, 'sarah sees only her item');
+  assertEqual(b.board.all().length, 1, 'raj sees only his');
+  return 'one workspace per employee, no shared file';
+});
+
+await check('fleet creation asks which tools are wanted and sorts them', () => {
+  const w = world();
+  onboard(w, manifest({ id: 'incident-desk', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
+  onboard(w, manifest({ id: 'closed-desk', connectors: [], scope: { type: 'list', members: ['raj'] } }));
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+  const f = w.fleet('sarah', 'f_sarah');
+
+  const chosen = f.tools.choose('f_sarah', [
+    { name: 'gmail', class: 'harness' },
+    { name: 'jira', class: 'harness' },
+    { name: 'incident-desk', class: 'enterprise' },
+    { name: 'incident-desk', class: 'enterprise', invoke: true },
+    { name: 'closed-desk', class: 'enterprise' },
+    { name: 'imaginary-desk', class: 'enterprise' },
+  ]);
+
+  const byWhy = (frag) => chosen.requested.filter((t) => t.why.includes(frag));
+  assertEqual(f.tools.availableNow().length, 3, 'two harness tools plus one consume are usable immediately');
+  assert(byWhy('authenticates as you').length === 2, 'harness tools need no grant (D3)');
+  assert(chosen.requested.find((t) => t.invoke).needs.startsWith('grant'), 'invoke needs a grant request (D4)');
+  assert(byWhy('not on the access list')[0].needs.startsWith('access'), 'a closed agent needs access first');
+  assert(byWhy('no enterprise agent named')[0].available === false, 'an unknown agent is not offered');
+  return `usable now: ${f.tools.availableNow().map((t) => t.name).join(', ')} | pending: ${f.tools.pending().length}`;
+});
+
+await check('the fleet gets a connection descriptor its harness can be pointed at', () => {
+  const w = world();
+  onboard(w, manifest({ id: 'incident-desk', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }, { id: 'writer' }] });
+  const f = w.fleet('sarah', 'f_sarah');
+  f.tools.choose('f_sarah', [
+    { name: 'gmail', class: 'harness' },
+    { name: 'incident-desk', class: 'enterprise', invoke: true },
+  ]);
+
+  const res = f.tools.connectionDescriptor({
+    fleet: 'f_sarah',
+    ledger_url: 'https://brain.corp/ledger',
+    gateway_url: 'https://brain.corp/gateway',
+    platform_board_url: 'https://brain.corp/board',
+  });
+  assert(res.ok, JSON.stringify(res.errors));
+  const d = res.descriptor;
+  assertEqual(d.agents, ['analyst', 'writer'], 'names the fleet agents so grants can address them');
+  assertEqual(d.harness, 'claude', 'names the harness');
+  assert(d.endpoints.gateway && d.endpoints.ledger && d.endpoints.platform_board, 'all three endpoints present');
+  assertEqual(d.tools.pending.length, 1, 'and states what is still pending a grant');
+  assert(existsSync(f.paths.connection), 'written into the employee workspace');
+  return `descriptor at ${f.paths.connection}`;
+});
+
+await check('the platform board works over a URL exactly as it does in-process', async () => {
+  const w = world();
+  onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+
+  // Same board, reached over the URL client instead of directly.
+  const f = w.fleet('sarah', 'f_sarah', { link: 'https://brain.corp/board' });
+  assertEqual(f.platformLink.kind, 'url', 'using the URL link');
+
+  const req = await f.board.requestGrant('sarah', { agent: 'analyst', target: 'snow', justification: 'weekly review' });
+  assert(req.ok, JSON.stringify(req.errors));
+  assertEqual(w.board.queue().length, 1, 'the request landed in the platform queue');
+
+  w.board.assign(req.platform_item, 'priya');
+  w.board.decide(req.platform_item, { decision: 'approved', by: 'priya', note: 'time-boxed 30d' });
+
+  const status = await f.board.grantStatus(req.item.id);
+  assertEqual(status.decision, 'approved', 'the decision came back over the URL');
+  return 'direct and URL links are interchangeable';
+});
+
+await check('the URL route cannot be walked to read someone else\'s request', async () => {
+  const w = world();
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+  onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
+  const f = w.fleet('sarah', 'f_sarah', { link: 'https://brain.corp/board' });
+  const req = await f.board.requestGrant('sarah', { agent: 'analyst', target: 'snow', justification: 'x' });
+
+  const mine = w.boardHandler({ method: 'GET', path: `/items/${req.platform_item}/status`, query: { requester: 'sarah' } });
+  assertEqual(mine.status, 200, 'the requester can read their own');
+
+  const theirs = w.boardHandler({ method: 'GET', path: `/items/${req.platform_item}/status`, query: { requester: 'raj' } });
+  assertEqual(theirs.status, 404, 'anyone else gets nothing, not a permission hint');
+
+  const listing = w.boardHandler({ method: 'GET', path: '/items' });
+  assertEqual(listing.status, 404, 'there is no route that enumerates the queue');
+  return 'two routes only; no enumeration path exists';
 });
 
 process.exit(report() === 0 ? 0 : 1);
