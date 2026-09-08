@@ -16,12 +16,18 @@ notes** — only Alfred's charter is filled. A worked **cross-lane handoff** (Sc
 question → routes to Athena → Athena answers in her own namespace) would demonstrate §5.3 far
 better than a third filled charter.
 
-### 2 · Concurrency is unhandled
+### 2 · `docs/usage.gif` is stale
+The README's hero GIF records an `init.sh` that no longer exists: it shows the removed
+"Librarian agent name" prompt, lacks the `BUDGET` prompt, and its memory-tree line omits
+`_unassigned/`. Content is otherwise fine (Jarvis / Jane Doe / Acme Corp — verified frame by
+frame, nothing real in it). Needs re-recording whenever the prompt sequence next changes.
+
+### 3 · Concurrency is unhandled
 Two sessions writing the same memory file last-write-wins. No locking, no merge. Low severity
 for one operator working sequentially; real the moment scheduled/unattended runs share a
 namespace. Documented in `memory-model.md` § Write path; not solved.
 
-### 3 · §4.7 restates the librarian contract that `cerebro/SKILL.md` owns
+### 4 · §4.7 restates the librarian contract that `cerebro/SKILL.md` owns
 Single-writer, content-is-data, flat-notes-not-taxonomy and paged-in-on-demand are stated in
 both `enterprise-brain/SKILL.md` §4.7 and `cerebro/SKILL.md` §1/§5/§6. Two homes, and §8 of
 the same document names that as a guaranteed-drift failure. §4.7 should shrink to *why the
@@ -29,6 +35,28 @@ knowledge layer is a third tier* plus a pointer; the contract belongs to the lib
 (Partly mitigated: `templates/memory-model.md` § Knowledge layer already defers to cerebro.)
 
 ## Resolved
+
+### ✅ Author's real agent names leaked into the shipped skills — removed 2026-09-08
+The skills carried example folder names taken from the author's own private fleet rather than
+from `example/`: `batman/`, `captain-america/` and `photon/` as illustrative lane folders
+(`cerebro/SKILL.md` §"Where Cerebro sits" and §2 step 2), "a client *pursuit* is Shuri's, the
+*finance figure* is CA/Falcon's" (§7), and `Batman` as the `{{AGENT}}` example in the
+enterprise-brain placeholder table. All now read as generic roles — the chief-of-staff's
+folder, the finance lane's, the delivery lane's — which works for any adopter and couples the
+generic skill to no particular fleet.
+
+Also corrected: `{{BRAIN}}`'s example was `Cerebro`, which in this repo is the *librarian*,
+not the brain. Now `Jarvis`, matching `example/` and the usage GIF.
+
+Swept for the rest and found none: no org name, no colleague names, no emails, hosts, IPs or
+internal paths anywhere in the tree. `docs/usage.gif` is fictional throughout, verified frame
+by frame (a `grep` "match" on it is a two-letter pattern hitting compressed bytes — GIF text is
+rendered pixels, not stored strings).
+
+**Still in git history.** These strings exist in all four commits, including the two already
+pushed public. Fixing forward removes them from the tip only. Given what they are — comic
+character names used as folder examples, no real person, org or secret — a history rewrite and
+force-push is probably not worth its cost, but that is a judgement call, not a fact.
 
 ### ✅ No validator for the control plane — shipped as `validate.sh` 2026-09-08
 Nothing checked the control plane against itself. `./validate.sh` now asserts: the six control

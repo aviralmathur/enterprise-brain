@@ -48,10 +48,10 @@ Search-and-replace before first use.
 
 | Placeholder | What it is | Example |
 |---|---|---|
-| `{{BRAIN}}` | The control plane's own name — the thing you address to route or ask about the org. | `Cerebro` |
+| `{{BRAIN}}` | The control plane's own name — the thing you address to route or ask about the org. | `Jarvis` |
 | `{{PRINCIPAL}}` | Who the fleet works for, and their real title. | `Jane Doe, VP Engineering` |
 | `{{ORG}}` | The organisation. Draws the internal/external line that governs signing. | `Acme Corp` |
-| `{{AGENT}}` | Any specialist agent's name (used in templates). | `Batman` |
+| `{{AGENT}}` | Any specialist agent's name (used in templates). | `Athena` |
 | `{{BOARD}}` | Command to log to your shared tracker, or omit if none. | `node ~/board/thread.mjs` |
 | `{{MEM_ROOT}}` | Absolute path to the memory tree root (§4). | `~/.claude/memory` |
 | `{{AGENTS_ROOT}}` | Absolute path where charters live. | `~/agents` |
