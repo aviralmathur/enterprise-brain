@@ -10,6 +10,14 @@ that kit teaches how *one* agent behaves; this one builds the *org* those agents
 
 ![One-command setup with ./init.sh](docs/usage.gif)
 
+> **Two things live in this repo now.** The skills below are the *personal* control
+> plane — one principal, one fleet, on one machine. [`platform/`](platform/) is the
+> *enterprise* build: many employee fleets, a platform-owned enterprise fleet, and a
+> shared output ledger between them. They share a name and an idea; they are separate
+> codebases with separate audiences. Start with the skills if you run your own fleet;
+> start with [`platform/README.md`](platform/README.md) if you are standing this up for
+> an organisation.
+
 ## What's in here
 
 ```
@@ -17,6 +25,8 @@ skills/
   enterprise-brain/   ← the control plane: roster, routing, fleet-wide rules, the memory model
   cerebro/             ← the knowledge lane: an LLM-Wiki librarian ("second brain") for durable world-facts
 example/              ← a tiny fictional 3-agent fleet, filled in, so you can see the shape
+platform/             ← the enterprise build: output ledger, provenance cascade, registry,
+                        grants, invoke gateway, two Mission Controls, and an employee fleet kit
 ```
 
 - **`enterprise-brain`** owns the roster, the routing table, one set of fleet-wide rules, and
