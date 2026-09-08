@@ -21,7 +21,7 @@ agent's private memory. (It keeps the *pattern* — ingest, provenance, cross-li
 separate wiki taxonomy: the employee folders are the structure.)
 
 **Where Cerebro sits.** Memory is one folder per AI employee (see
-`~/agents/_control/memory-model.md`). Cerebro is the employee that owns the **cross-cutting
+`{{AGENTS_ROOT}}/_control/memory-model.md`). Cerebro is the employee that owns the **cross-cutting
 knowledge** no single lane owns — research, patterns, methods, the skills catalog, external
 tools. A world-fact that clearly belongs to one lane goes in *that lane's* folder (a
 leadership contact → `batman/`, a finance figure → `captain-america/`); Cerebro keeps only
@@ -139,7 +139,7 @@ aliases: [<other names it goes by>]     # optional
   discipline as the fleet's verify-before-asserting rule.)
 - **Not auto-loaded.** Cerebro's notes are read on demand; it never joins the always-on
   set. That is what lets it grow freely.
-- Inherits `~/agents/_control/how-we-work.md`: no dates/scope/price commitments, identity
+- Inherits `{{AGENTS_ROOT}}/_control/how-we-work.md`: no dates/scope/price commitments, identity
   never crosses lanes, nothing outward without the principal's per-item instruction.
 
 ---
@@ -158,6 +158,6 @@ hands it to Cerebro to file in `cerebro/` rather than duplicating it in its own 
 
 ## 8 · Setup checklist
 - [ ] Create the folder (§1): `cerebro/` with a `raw/` inbox and `cerebro/knowledge-log.md`.
-- [ ] Roster + routing rows for Cerebro already added to `~/agents/_control/`.
+- [ ] Roster + routing rows for Cerebro already added to `{{AGENTS_ROOT}}/_control/`.
 - [ ] Drop a first source in `cerebro/raw/` and run ingest.
 - [ ] Browse the notes by folder (the Files pane), not the graph.

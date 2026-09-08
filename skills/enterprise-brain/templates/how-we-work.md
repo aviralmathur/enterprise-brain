@@ -39,7 +39,7 @@ orchestrator-agent-kit, this file IS its `_shared/how-we-work.md` — keep one c
 - **Compact at 60% context.** Write anything that must survive verbatim (a quote, an id, a
   channel) to a file or the board first.
 
-## Memory (see the memory-model)
+## Memory (full contract: `_control/memory-model.md`)
 
 - Write only your own namespace; propose fleet facts. Only {{BRAIN}} writes `_shared/`.
 - Check for an existing file before writing; update, don't duplicate.

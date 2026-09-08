@@ -11,10 +11,10 @@ metadata:
 
 <!--
 owner rules:
-- fleet  → EVERY agent needs it (identity/signing, environment, never-miss people,
-           fleet-wide standing rules). Expensive: loads everywhere. Cap it. Earn it.
+- shared  → EVERY agent needs it (identity/signing, environment, never-miss people,
+            fleet-wide standing rules). Expensive: loads everywhere. Cap it. Earn it.
 - <agent> → the default. Lives in that agent's namespace; loads only when it runs.
-A fact two agents need is NOT duplicated — promote to fleet, or one agent reads the
+A fact two agents need is NOT duplicated — promote to shared, or one agent reads the
 other's when they collaborate.
 -->
 
