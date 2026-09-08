@@ -8,6 +8,8 @@ actually live?"** (per-agent memory).
 It is the companion to the [orchestrator-agent-kit](https://github.com/aviralmathur/orchestrator-agent-kit):
 that kit teaches how *one* agent behaves; this one builds the *org* those agents sit on.
 
+![One-command setup with ./init.sh](docs/usage.gif)
+
 ## What's in here
 
 ```
@@ -24,23 +26,43 @@ example/              ← a tiny fictional 3-agent fleet, filled in, so you can 
 - **`cerebro`** is the single-writer librarian for cross-cutting knowledge — ingest a source,
   it files durable notes; ask "what do we know about X", it answers with provenance.
 
-## Install
+## Quickstart
 
-1. Copy the two skill folders into your Claude Code skills directory:
-   ```bash
-   cp -r skills/enterprise-brain skills/cerebro ~/.claude/skills/
-   ```
-2. Fill in the placeholders (`{{BRAIN}}`, `{{PRINCIPAL}}`, `{{ORG}}`, `{{MEM_ROOT}}`,
-   `{{AGENTS_ROOT}}`, …) — see §0 of the enterprise-brain SKILL.md.
-3. Create your control plane from the templates:
-   ```bash
-   mkdir -p ~/agents/_control
-   cp skills/enterprise-brain/templates/{roster,routing,how-we-work,who,environment}.md ~/agents/_control/
-   ```
-4. Create your memory tree (one folder per agent + a small shared core + a sectioned
-   `MEMORY.md`) — see §4 of the SKILL.md. You can adopt this **on top of an existing flat
-   memory store without moving a file on day one** (the lazy-migration path, §4.6).
-5. Wire your agents in **one at a time** (§5.4). Resist doing all at once.
+```bash
+git clone https://github.com/aviralmathur/enterprise-brain
+cd enterprise-brain
+./init.sh
+```
+
+`init.sh` prompts for the six org-level values (the brain's name, the principal, the org,
+where charters and memory live, the librarian's name, an optional board command), then:
+
+- fills the placeholders and writes your **control plane** to `~/agents/_control/`
+  (`roster`, `routing`, `how-we-work`, `who`, `environment`),
+- scaffolds your **memory tree** (`_shared/`, the librarian's folder, a sectioned `MEMORY.md`),
+- and — if you give it a skills dir — copies and fills the two **skills** into it.
+
+It runs non-interactively too (for CI or scripting):
+
+```bash
+BRAIN=Jarvis PRINCIPAL="Jane Doe, VP Eng" ORG=Acme \
+  AGENTS_ROOT=~/agents MEM_ROOT=~/.claude/memory INSTALL_SKILLS=~/.claude/skills ./init.sh
+```
+
+Only the org-level placeholders are filled; the per-agent `{{AGENT}}` is left for when you
+onboard each agent (SKILL §5.4). You can adopt all of this **on top of an existing flat memory
+store without moving a file on day one** (the lazy-migration path, §4.6).
+
+<details>
+<summary>Prefer to do it by hand?</summary>
+
+1. `cp -r skills/enterprise-brain skills/cerebro ~/.claude/skills/`
+2. Fill the placeholders (`{{BRAIN}}`, `{{PRINCIPAL}}`, `{{ORG}}`, `{{MEM_ROOT}}`,
+   `{{AGENTS_ROOT}}`) — see §0 of the enterprise-brain SKILL.md.
+3. `mkdir -p ~/agents/_control && cp skills/enterprise-brain/templates/{roster,routing,how-we-work,who,environment}.md ~/agents/_control/`
+4. Create the memory tree (a folder per agent + a small shared core + a sectioned `MEMORY.md`) — §4.
+5. Wire your agents in **one at a time** (§5.4).
+</details>
 
 See [`example/`](example/) for a filled-in reference to copy from.
 
