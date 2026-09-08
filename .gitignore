@@ -1,0 +1,23 @@
+# ── Secrets ─────────────────────────────────────────────────────────────
+.env
+.env.*
+*.key
+*.pem
+**/secrets/
+
+# ── NEVER commit a real fleet instance ──────────────────────────────────
+# This repo ships the generic KIT + a fictional example only.
+# Your real control plane, charters, and memory are private data — keep them
+# in ~/agents and ~/.claude, never copied in here. These guard against accident:
+/agents/
+/memory/
+**/_control/*.local.md
+# (the fictional example/ tree is intentionally tracked — it contains no real data)
+
+# ── OS / editor cruft ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Untitled.base
+*.pre-bundle-*
+_migration_report.json
+.obsidian/
