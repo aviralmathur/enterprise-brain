@@ -632,4 +632,184 @@ await check('the URL route cannot be walked to read someone else\'s request', as
   return 'two routes only; no enumeration path exists';
 });
 
+// ─────────────────────────── THE HOST ───────────────────────────
+phase('The host — identity comes from the token, never the request');
+
+// Every check here goes through host.handle(), which is the same code path the
+// listening server uses. No socket, so the results are deterministic.
+const hosted = () => {
+  const w = world();
+  onboard(w, manifest({ id: 'incident-desk', invocable: true, scope: { type: 'list', members: ['sarah', 'raj'] } }));
+  onboard(w, manifest({ id: 'revenue-desk', connectors: [], scope: { type: 'list', members: ['sarah'] }, produces: ['metric'] }));
+  enterpriseOutput(w, { id: 'rev_q4', agent: 'revenue-desk', subject: 'q4', value: 100 });
+  enterpriseOutput(w, { id: 'inc_week', agent: 'incident-desk', kind: 'incident_summary', subject: 'api', value: { open: 3 } });
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+  w.fleets.register({ fleet: 'f_raj', owner: 'raj', agents: [{ id: 'analyst' }] });
+  const sarahToken = w.tokens.issue({ employee: 'sarah', fleet: 'f_sarah' }).token;
+  const rajToken = w.tokens.issue({ employee: 'raj', fleet: 'f_raj' }).token;
+  const call = (token, req) => w.host.handle({ ...req, headers: token ? { authorization: `Bearer ${token}` } : {} });
+  return { w, sarahToken, rajToken, call };
+};
+
+await check('an unauthenticated request is refused and audited', async () => {
+  const { w, call } = hosted();
+  const none = await call(null, { method: 'GET', path: '/ledger/ask', query: { agent: 'analyst' } });
+  assertEqual(none.status, 401, 'no token');
+  const bogus = await call('ebt_nope', { method: 'GET', path: '/ledger/ask', query: { agent: 'analyst' } });
+  assertEqual(bogus.status, 401, 'unknown token');
+  assertEqual((await call(null, { method: 'GET', path: '/health' })).status, 200, 'health needs no token');
+  assertEqual(w.audit.all().filter((e) => e.action === 'auth').length, 2, 'both refusals audited');
+  return 'health open; everything else needs a live token';
+});
+
+await check('a body-supplied employee id is ignored, not honoured', async () => {
+  const { call, sarahToken } = hosted();
+  // Sarah's token, asking to be treated as raj. rev_q4 is sarah-only, so if the
+  // body were honoured this read would be refused - and if it is ignored, allowed.
+  const res = await call(sarahToken, {
+    method: 'GET', path: '/ledger/outputs/rev_q4', query: { agent: 'analyst' },
+    body: { employee: 'raj' },
+  });
+  assertEqual(res.status, 200, 'acted as sarah, the token holder');
+  assertEqual(res.body.output.id, 'rev_q4', 'and read what sarah may read');
+
+  // And the reverse: raj's token cannot reach sarah's output by claiming to be her.
+  const { call: call2, rajToken } = hosted();
+  const denied = await call2(rajToken, {
+    method: 'GET', path: '/ledger/outputs/rev_q4', query: { agent: 'analyst' },
+    body: { employee: 'sarah' },
+  });
+  assertEqual(denied.status, 403, 'claiming to be sarah changes nothing');
+  return 'the employee field is not read; identity is the token';
+});
+
+await check('a body-supplied fleet id cannot be borrowed', async () => {
+  const { call, rajToken } = hosted();
+  // Raj claims to be acting as an agent inside sarah's fleet.
+  const res = await call(rajToken, {
+    method: 'POST', path: '/gateway/invoke',
+    body: { via: { fleet: 'f_sarah', agent: 'analyst' }, target: 'incident-desk', op: 'incident.summary' },
+  });
+  // The fleet comes from the token, so this resolves to f_raj/analyst and fails on
+  // f_raj's own missing grant - never on sarah's.
+  assertEqual(res.status, 403, 'refused');
+  assert(res.body.reason.includes('f_raj/analyst'), `resolved to the token's own fleet, got: ${res.body.reason}`);
+  return res.body.reason;
+});
+
+await check('an unregistered agent id is refused before any access check', async () => {
+  const { call, sarahToken } = hosted();
+  const res = await call(sarahToken, { method: 'GET', path: '/ledger/ask', query: { agent: 'ghost' } });
+  assertEqual(res.status, 403, 'refused');
+  assert(res.body.reason.includes('not registered'), res.body.reason);
+  return res.body.reason;
+});
+
+await check('publishing over the wire still computes the scope (D7)', async () => {
+  const { call, sarahToken } = hosted();
+  const res = await call(sarahToken, {
+    method: 'POST', path: '/ledger/outputs',
+    body: {
+      via: { agent: 'analyst' },
+      candidate: {
+        id: 'note_1', kind: 'brief', body: { subject: 'ops', value: 'x' },
+        derived_from: ['rev_q4'],
+        scope: { type: 'org' },            // asked for org-wide
+      },
+    },
+  });
+  assertEqual(res.status, 201, JSON.stringify(res.body));
+  assertEqual(res.body.scope, '1 named: sarah', 'the ledger overruled the request');
+  return `${res.body.scope} — ${res.body.scope_basis}`;
+});
+
+await check('a published output is signed by the token holder, not the body', async () => {
+  const { w, call, sarahToken } = hosted();
+  await call(sarahToken, {
+    method: 'POST', path: '/ledger/outputs',
+    body: {
+      via: { agent: 'analyst' },
+      producer: { fleet: 'enterprise', agent: 'revenue-desk', identity: 'priya' },  // forged
+      candidate: { id: 'note_2', kind: 'brief', body: { subject: 'ops', value: 'y' } },
+    },
+  });
+  const o = w.ledger.get('note_2');
+  assertEqual(o.producer, { fleet: 'f_sarah', agent: 'analyst', identity: 'sarah' }, 'producer is forced from the token');
+  return 'a forged producer block is discarded';
+});
+
+await check('an approval cannot name someone else as the approver', async () => {
+  const { w, call, sarahToken } = hosted();
+  w.grants.issue({
+    subject: { type: 'fleet_agent', fleet: 'f_sarah', agent: 'analyst' },
+    agent: 'incident-desk', expires_at: soon(), approved_by: 'priya',
+  });
+  const res = await call(sarahToken, {
+    method: 'POST', path: '/gateway/invoke',
+    body: {
+      via: { agent: 'analyst' }, target: 'incident-desk', op: 'incident.create',
+      args: { short_description: 'x' },
+      approval: { approved_by: 'priya' },   // trying to borrow an approver
+    },
+  });
+  assertEqual(res.status, 200, 'the write went through as sarah approving her own agent');
+  const row = w.audit.all().filter((e) => e.action === 'invoke').at(-1);
+  assertEqual(row.detail.approved_by, 'sarah', 'audited as sarah, not priya');
+  return 'the approver is always the caller';
+});
+
+await check('the board records the token holder as requester', async () => {
+  const { w, call, sarahToken, rajToken } = hosted();
+  const res = await call(sarahToken, {
+    method: 'POST', path: '/board/items',
+    body: { type: 'grant_request', subject: 'f_sarah/analyst -> incident-desk', requester: 'priya' },
+  });
+  assertEqual(res.status, 201, JSON.stringify(res.body));
+  assertEqual(w.board.get(res.body.item.id).requester, 'sarah', 'requester forced from the token');
+
+  // Status is scoped the same way: raj's own item is readable by raj and by nobody else.
+  const rajItem = await call(rajToken, { method: 'POST', path: '/board/items', body: { type: 'grant_request', subject: 'x' } });
+  const own = await call(rajToken, { method: 'GET', path: `/board/items/${rajItem.body.item.id}/status` });
+  assertEqual(own.status, 200, 'raj reads his own');
+  const theirs = await call(sarahToken, { method: 'GET', path: `/board/items/${rajItem.body.item.id}/status` });
+  assertEqual(theirs.status, 404, 'sarah gets nothing for his item');
+  return 'requester is the token holder, and status is scoped to them';
+});
+
+await check('a revoked token stops working immediately', async () => {
+  const { w, call, sarahToken } = hosted();
+  assertEqual((await call(sarahToken, { method: 'GET', path: '/ledger/ask', query: { agent: 'analyst' } })).status, 200, 'works first');
+  w.tokens.revoke(sarahToken);
+  assertEqual((await call(sarahToken, { method: 'GET', path: '/ledger/ask', query: { agent: 'analyst' } })).status, 401, 'and stops');
+  return 'no cleanup job, no cache to expire';
+});
+
+await check('a live token for a former employee is refused', async () => {
+  const { w, call } = hosted();
+  const token = w.tokens.issue({ employee: 'dev', fleet: 'f_sarah' }).token;  // dev is 'former' in the directory
+  const res = await call(token, { method: 'GET', path: '/ledger/ask', query: { agent: 'analyst' } });
+  assertEqual(res.status, 403, 'refused on identity, not on the token');
+  assert(res.body.reason.includes('not active'), res.body.reason);
+  return 'offboarding takes effect at the host with nothing to revoke';
+});
+
+await check('an archived fleet cannot act', async () => {
+  const { w, call, sarahToken } = hosted();
+  w.fleets.archive('f_sarah', 'owner left');
+  const res = await call(sarahToken, { method: 'GET', path: '/ledger/ask', query: { agent: 'analyst' } });
+  assertEqual(res.status, 403, 'refused');
+  assert(res.body.reason.includes('archived'), res.body.reason);
+  return res.body.reason;
+});
+
+await check('an internal error never leaks a stack trace', async () => {
+  const { w, call, sarahToken } = hosted();
+  // Break a dependency the route relies on, then call it.
+  w.query.ask = () => { throw new Error('secret internal detail at /platform/path'); };
+  const res = await call(sarahToken, { method: 'GET', path: '/ledger/ask', query: { agent: 'analyst' } });
+  assertEqual(res.status, 500, 'a 500, not a crash');
+  assertEqual(res.body, { ok: false, reason: 'internal error' }, 'and nothing about the internals');
+  return 'errors are opaque to the caller';
+});
+
 process.exit(report() === 0 ? 0 : 1);
