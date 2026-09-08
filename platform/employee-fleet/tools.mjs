@@ -100,6 +100,13 @@ export class FleetTools {
         // Mission Control for the platform team — a URL away (or linked directly).
         platform_board: platform_board_url ?? null,
       },
+      // The fleet token is NOT written here. It is a bearer credential: it goes in
+      // an environment variable, so this file stays safe to read, copy and inspect.
+      auth: {
+        scheme: 'bearer',
+        token_env: 'ENTERPRISE_BRAIN_TOKEN',
+        note: 'the token carries the employee AND the fleet — the host reads identity from it, never from a request',
+      },
       tools: {
         available: this.availableNow().map((t) => ({ name: t.name, class: t.class, invoke: Boolean(t.invoke) })),
         pending: this.pending().map((t) => ({ name: t.name, needs: t.needs })),

@@ -27,6 +27,7 @@ export function platformWorkspace(root = join(homedir(), '.enterprise-brain', 'p
     board: join(root, 'platform-board.json'),
     fleetRoster: join(root, 'fleet-roster.json'),
     idp: join(root, 'idp', 'directory.json'),
+    tokens: join(root, 'tokens.json'),
   };
 }
 
@@ -46,6 +47,6 @@ export function employeeWorkspace(employee, root = join(homedir(), '.enterprise-
 // What each side is allowed to touch. Used by the acceptance suite to prove the
 // boundary rather than assert it.
 export const OWNERSHIP = {
-  platform: ['ledger', 'audit', 'registry', 'grants', 'board', 'fleetRoster', 'idp'],
+  platform: ['ledger', 'audit', 'registry', 'grants', 'board', 'fleetRoster', 'idp', 'tokens'],
   employee: ['board', 'tools', 'connection'],
 };

@@ -5,11 +5,12 @@ through which those fleets consume what the enterprise's own agents produce.
 
 This is a **working reference implementation**, not a production deployment. Every
 rule in [`spec/contracts.md`](spec/contracts.md) is enforced by real code and
-proved by a runnable check. Two things are seams rather than integrations, and are
-marked as such below.
+proved by a runnable check. Three things are seams rather than integrations, and
+are marked as such below.
 
 ```bash
-node demo.mjs          # narrated end-to-end walkthrough, 13 steps
+node serve.mjs --seed   # start the host, seeded, with a fleet token printed
+node demo.mjs           # narrated end-to-end walkthrough, 14 steps
 node acceptance/run.mjs # the roadmap's exit tests as runnable checks
 ```
 
@@ -52,6 +53,32 @@ The one thing that lives on the platform side despite describing a fleet is the
 **roster** (ids, owner, agent ids) — granting invoke to *a named agent inside a
 named fleet* requires the platform to be able to address that agent.
 
+## Run the host
+
+```bash
+node serve.mjs --seed
+```
+
+Serves the three endpoints a connection descriptor names, on `node:http`, no
+dependencies. `--seed` builds a fresh world — two enterprise agents onboarded, two
+outputs published, one fleet registered — and prints a fleet token with curl
+examples.
+
+```
+  ledger          http://127.0.0.1:8080/ledger
+  gateway         http://127.0.0.1:8080/gateway
+  platform_board  http://127.0.0.1:8080/board
+```
+
+**Identity comes from the token, never from the request.** A token is issued per
+fleet and carries both the employee and the fleet id, so a caller cannot name
+either. Only the agent id comes from the request, and the host verifies it against
+the roster. A body that says `{"employee": "someone-else"}` is simply acting as
+itself — that field is not read.
+
+This is the piece a platform team replaces with the same routes on infrastructure
+they already run. The routes and the checks are the contract; this process is not.
+
 ## The transport is not ours
 
 The person building a fleet installs whatever MCP components their harness
@@ -90,7 +117,9 @@ platform-fleet/         owned and governed by the platform team (D1)
   grants.mjs            time-boxed invoke grants
   gateway.mjs           the only enforcement that counts (D13)
   board.mjs             thin review queue (D19)
-  handler.mjs           mountable request handler — two routes, no enumeration
+  handler.mjs           mountable board handler — two routes, no enumeration
+  host.mjs              serves /ledger, /gateway, /board; identity from the token
+  tokens.mjs            ── SEAM: token -> { employee, fleet }
   connectors/           ── SEAM: ServiceNow / Agentforce / Copilot adapters
 
 employee-fleet/         self-serve, free to create (D2)
@@ -102,21 +131,23 @@ employee-fleet/         self-serve, free to create (D2)
 kit/skills/             what an employee installs — six skills, one file each
 spec/contracts.md       the Phase 0 contracts
 workspace.mjs           storage ownership: platform vs employee
-acceptance/run.mjs      33 checks, one per exit test or decision
+acceptance/run.mjs      45 checks, one per exit test or decision
 wire.mjs                buildPlatform() and buildFleet()
+serve.mjs               start the host
 ```
 
-## The two seams
+## The three seams
 
-Everything else is real. These two are interfaces with a local implementation
-behind them, because neither can exist on a laptop:
+Everything else is real. These three are interfaces with a local implementation
+behind them, because none of them can exist on a laptop:
 
 | Seam | What is real | What to swap in |
 |---|---|---|
 | **Identity** (`brain/identity.mjs`) | The provider contract, and the invariant that the brain re-resolves on every call and **persists no entitlements** — proved by a check that walks every stored record | A real IdP client. `resolve(employeeId) → { id, status, entitlements }` is the whole surface. |
 | **Connectors** (`platform-fleet/connectors/`) | The normalise-to-schema contract, the `auth_mode` declaration that drives scope review, and read-vs-write op classification that forces approval | A real vendor client in `call()`. `normalise()` does not change. |
+| **Tokens** (`platform-fleet/tokens.mjs`) | That a token binds employee *and* fleet, that it is re-read on every request, and that revocation and offboarding both take effect immediately | Whatever mints your tokens — OIDC, an internal STS, mTLS identity. `resolve(token) → { employee, fleet }` is the whole surface. |
 
-Swapping either is a config change. Nothing above those files moves.
+Swapping any of them is a config change. Nothing above those files moves.
 
 ## The two boards are different products
 
@@ -141,7 +172,7 @@ fields are still absent, so the deferral stays honest.
 
 ## What the acceptance suite proves
 
-33 checks, grouped by the phase whose exit test they are.
+45 checks, grouped by the phase whose exit test they are.
 
 | Phase | Proves |
 |---|---|
@@ -152,6 +183,7 @@ fields are still absent, so the deferral stays honest.
 | 5 | granted invokes, identical ungranted refused, both audited; every vendor write terminates at a human; the gateway sheds rather than passing a stampede; revocation is immediate; the boards share only the grant request |
 | 6 | status comes from a check that can fail; telemetry surfaces unused agents; conflicting answers are surfaced, never resolved |
 | Workspaces | employee and platform storage are separate trees; two employees never share a file; tool selection sorts harness from enterprise; the descriptor names all three endpoints; the URL link behaves identically to the direct one; **the URL route cannot be walked to read someone else's request** |
+| Host | health is open and everything else needs a live token; **a body-supplied employee id is ignored and a body-supplied fleet id cannot be borrowed**; an unregistered agent is refused first; publishing over the wire still computes scope and forces the signer; an approval cannot name another approver; revocation and offboarding are immediate; an archived fleet cannot act; a 500 leaks nothing |
 
 A phase that cannot pass its check has not shipped, whatever the code says.
 
@@ -167,14 +199,15 @@ Honest list, in the order they would bite.
    separate files, which is the right shape, but nothing stops a process with
    filesystem access from reading another workspace. Real isolation is per-tenant
    storage with its own credentials.
-4. **Subscriptions (component 16) are not built.** Phase 6, and the only component
-   in the plan with no code here.
-5. **No human UI.** Both boards are libraries over JSON files. Nobody can *open*
-   either one — a person interacting with the brain still needs a surface built.
-6. **Nothing is served.** `handler.mjs` is mountable but unmounted; the ledger and
-   gateway are in-process calls. A fleet's harness has nothing to connect to until
-   the platform team hosts them.
-7. **Load shedding is a per-minute rate limit and an in-flight cap.** Real shedding
-   needs a queue with priorities.
+5. **No human UI.** Both boards are libraries over JSON files reached through the
+   host. Nobody can *open* either one — a person interacting with the brain still
+   needs a surface built. This is the largest remaining gap.
+6. **The host is HTTP on localhost with no TLS, CORS, or request limits.** Fine
+   behind a reverse proxy that terminates TLS and rate-limits by IP; not fine
+   exposed directly.
+7. **Load shedding is a per-minute rate limit and an in-flight cap**, and the
+   counters are per-process. Real shedding needs a queue with priorities and shared
+   state across instances.
 8. **`conflicts()` compares `body.value` by identity.** Real conflict detection
    needs per-kind comparators.
+9. **Subscriptions (component 16) are still not built.**

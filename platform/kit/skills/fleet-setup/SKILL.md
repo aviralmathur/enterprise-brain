@@ -69,7 +69,23 @@ installs their own transport** — whatever MCP components their harness provide
 and points it at these endpoints. This skill does not implement a transport and
 should not offer to.
 
-## 4 · Then hand off
+## 4 · The token
+
+The platform team issues one bearer token per fleet. It carries **both** the
+employee and the fleet id, which is why a request never names either — the host
+reads identity from the token and ignores anything the body claims.
+
+It goes in an environment variable, never in a file:
+
+```bash
+export ENTERPRISE_BRAIN_TOKEN=ebt_...
+```
+
+`connection.json` names the variable and does not contain the value. Never write a
+token into the descriptor, a skill file, a commit, or a log line. If a token needs
+replacing, the platform team revokes and reissues — revocation is immediate.
+
+## 5 · Then hand off
 
 - anything pending a grant → `fleet-access`
 - reading → `fleet-consume`

@@ -22,6 +22,8 @@ import { Grants } from './platform-fleet/grants.mjs';
 import { Gateway } from './platform-fleet/gateway.mjs';
 import { PlatformBoard } from './platform-fleet/board.mjs';
 import { createPlatformBoardHandler, fetchAgainst } from './platform-fleet/handler.mjs';
+import { createLocalTokenResolver } from './platform-fleet/tokens.mjs';
+import { createHost } from './platform-fleet/host.mjs';
 import { all as connectors } from './platform-fleet/connectors/index.mjs';
 
 import { LocalEnforcement } from './employee-fleet/enforce.mjs';
@@ -67,14 +69,23 @@ export function buildPlatform({ ws, fresh = false, idp = null } = {}) {
   const gates = new QualityGates(ledger);
 
   // What a platform team mounts on the server they already run, so fleets can
-  // reach the board over a URL. We do not start a server here.
+  // reach the board over a URL.
   const boardHandler = createPlatformBoardHandler(board);
 
-  return {
+  // How a request over the wire becomes a principal. Third seam.
+  const tokens = createLocalTokenResolver(paths.tokens);
+
+  const platform = {
     kind: 'platform',
     paths, identity, audit, ledger, query, registry, fleetRoster,
-    grants, gateway, board, telemetry, gates, connectors, boardHandler,
+    grants, gateway, board, telemetry, gates, connectors, boardHandler, tokens,
   };
+
+  // The host serves the three endpoints a connection descriptor names. Built here
+  // but not listening - call host.listen(port) to serve, or host.handle(req) to
+  // exercise every route without a socket.
+  platform.host = createHost({ platform, tokens });
+  return platform;
 }
 
 // One employee's fleet, in that employee's own workspace.
