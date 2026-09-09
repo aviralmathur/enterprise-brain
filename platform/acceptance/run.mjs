@@ -858,6 +858,98 @@ await check('the URL route cannot be walked to read someone else\'s request', as
   return 'two routes only; no enumeration path exists';
 });
 
+// ──────────────────── THE BOARDS, AS SERVED PAGES ────────────────────
+phase('The two boards a person can open, and the API behind them');
+
+// A host with the local token list switched on, which is what `serve.mjs --seed`
+// does and what no real deployment should do.
+const withBoards = ({ devTokens = true } = {}) => {
+  const w = world({ devTokens });
+  onboard(w, manifest({ id: 'revenue-desk', connectors: [], scope: { type: 'list', members: ['sarah'] }, produces: ['metric'] }));
+  enterpriseOutput(w, { id: 'rev_q4', agent: 'revenue-desk', subject: 'q4', value: 100 });
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst', purpose: 'reads' }] });
+  const fleetToken = w.tokens.issue({ kind: 'fleet', employee: 'sarah', fleet: 'f_sarah', days: 30 }).token;
+  const platformToken = w.tokens.issue({ kind: 'platform', employee: 'priya', days: 30 }).token;
+  const call = (token, req) => w.host.handle({ ...req, headers: token ? { authorization: `Bearer ${token}` } : {} });
+  return { w, fleetToken, platformToken, call };
+};
+
+await check('both boards and the landing page are served as pages', async () => {
+  const { call } = withBoards();
+  const seen = [];
+  for (const path of ['/', '/fleet', '/platform']) {
+    const res = await call(null, { method: 'GET', path });
+    assertEqual(res.status, 200, `${path} should be served`);
+    assert(String(res.contentType).startsWith('text/html'), `${path} should be HTML`);
+    assert(res.body.length > 2000, `${path} should not be an empty shell`);
+    seen.push(path);
+  }
+  return `${seen.join(', ')} served with no token, because a page carries none`;
+});
+
+await check('a page needs no token, and shows nothing until one is supplied', async () => {
+  const { call } = withBoards();
+  const page = (await call(null, { method: 'GET', path: '/fleet' })).body.toString();
+  // The token travels in the URL fragment, which never reaches the server.
+  assert(/#token=|location\.hash/.test(page), 'the page reads its token from the fragment');
+  assert(!/ebt_[0-9a-f]{8}/.test(page), 'and no bearer value is baked into the page');
+  return 'the fragment never reaches this process, so a page can be open';
+});
+
+await check('the two API surfaces do not overlap', async () => {
+  const { call, fleetToken, platformToken } = withBoards();
+  assertEqual((await call(fleetToken, { method: 'GET', path: '/api/fleet/context' })).status, 200, 'fleet token on a fleet route');
+  assertEqual((await call(platformToken, { method: 'GET', path: '/api/platform/overview' })).status, 200, 'platform token on a platform route');
+
+  const crossed = await call(fleetToken, { method: 'GET', path: '/api/platform/overview' });
+  assertEqual(crossed.status, 403, 'a fleet token on a platform route is refused');
+  const crossedBack = await call(platformToken, { method: 'GET', path: '/api/fleet/context' });
+  assertEqual(crossedBack.status, 403, 'and the reverse holds too');
+  return `${crossed.body.reason} / ${crossedBack.body.reason}`;
+});
+
+await check('the API needs a live token exactly as the endpoints do', async () => {
+  const { call } = withBoards();
+  assertEqual((await call(null, { method: 'GET', path: '/api/fleet/context' })).status, 401, 'no token');
+  assertEqual((await call('ebt_nope', { method: 'GET', path: '/api/platform/overview' })).status, 401, 'unknown token');
+  return 'a page is open; the data behind it is not';
+});
+
+await check('the board a fleet sees is its own, and it is the whole structure', async () => {
+  const { call, fleetToken } = withBoards();
+  const made = await call(fleetToken, {
+    method: 'POST', path: '/api/fleet/board/instruct',
+    body: { text: 'reconcile the quarter', lane: 'analyst', kind: 'task', status: 'blocked', next: 'chase the extract' },
+  });
+  assertEqual(made.status, 201, 'an item is created');
+  assertEqual(made.body.item.lane, 'analyst', 'in a lane');
+  assertEqual(made.body.item.status, 'blocked', 'with a work status of its own');
+
+  const board = (await call(fleetToken, { method: 'GET', path: '/api/fleet/board' })).body;
+  assertEqual(board.waiting_on_agents.length, 1, 'one instruction waits on an agent');
+  assertEqual(board.waiting_on_you.length, 0, 'and nothing waits on the owner yet');
+  assertEqual(Object.keys(board.columns).filter((k) => board.columns[k].length), ['blocked'], 'columns are keyed by status');
+
+  const read = (await call(fleetToken, { method: 'GET', path: `/api/fleet/board/${made.body.item.id}` })).body;
+  assertEqual(read.conversation.map((e) => e.kind), ['instruction'], 'the conversation excludes bookkeeping');
+  assertEqual(read.pending, null, 'and nothing is pending a verdict');
+  return `${made.body.item.id} in lane analyst, status blocked, one instruction waiting`;
+});
+
+await check('the local token list is off unless the host was told to serve it', async () => {
+  const off = withBoards({ devTokens: false });
+  assertEqual((await off.call(null, { method: 'GET', path: '/api/dev/tokens' })).status, 404, 'off by default');
+
+  const on = withBoards();
+  const res = await on.call(null, { method: 'GET', path: '/api/dev/tokens' });
+  assertEqual(res.status, 200, 'on when asked for');
+  assertEqual(res.body.tokens.length, 2, 'and it lists both kinds');
+
+  const remote = await on.call(null, { method: 'GET', path: '/api/dev/tokens', loopback: false });
+  assertEqual(remote.status, 404, 'and never off the loopback interface');
+  return 'off by default, loopback only, never in a real deployment';
+});
+
 // ─────────────────────────── THE HOST ───────────────────────────
 phase('The host — identity comes from the token, never the request');
 

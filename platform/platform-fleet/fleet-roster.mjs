@@ -50,6 +50,8 @@ export class FleetRoster {
 
   owner(fleet) { return this.get(fleet)?.owner ?? null; }
 
+  ownedBy(employee) { return this.all().filter((f) => f.owner === employee); }
+
   hasAgent(fleet, agent) {
     return Boolean(this.get(fleet)?.agents.some((a) => a.id === agent));
   }

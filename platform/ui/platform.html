@@ -1,0 +1,1467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Platform Mission Control</title>
+<style>
+  :root {
+    --bg: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f6f8fa;
+    --border: #d5dce3;
+    --border-strong: #b7c2cc;
+    --text: #16202b;
+    --text-muted: #5c6b7a;
+    --text-faint: #8a96a3;
+    --accent: #2b5876;
+    --accent-strong: #1d3f57;
+    --accent-tint: #e3edf3;
+    --focus: #2b5876;
+    --positive: #1c6b42;
+    --positive-bg: #e3f3e8;
+    --negative: #a3241c;
+    --negative-bg: #fbe7e5;
+    --caution: #8a5a00;
+    --caution-bg: #fbf0d9;
+    --neutral: #55606b;
+    --neutral-bg: #e7eaee;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%;
+    overflow-x: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: 13px; color: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 2px;
+  }
+  h1, h2, h3, h4 { margin: 0 0 8px 0; font-weight: 600; }
+  h3 { font-size: 15px; }
+  h4 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 16px; }
+  p { margin: 0 0 8px 0; }
+  code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border); }
+  a { color: var(--accent); }
+  .hint { color: var(--text-muted); font-size: 12.5px; }
+
+  /* ---- app shell ---- */
+  .topbar {
+    background: var(--accent-strong); color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; gap: 16px; flex-wrap: wrap;
+  }
+  .topbar-left { display: flex; align-items: baseline; gap: 10px; }
+  .brand { font-weight: 700; font-size: 15px; letter-spacing: .01em; }
+  .brand-sub { font-size: 12px; color: #cfe0ea; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+  .topbar-right button { background: transparent; border: 1px solid #ffffff55; color: #fff; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+  .topbar-right button:hover { background: #ffffff22; }
+
+  .tabbar {
+    display: flex; gap: 2px; background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 16px; overflow-x: auto; position: sticky; top: 0; z-index: 5;
+  }
+  .tab-btn {
+    background: none; border: none; border-bottom: 3px solid transparent;
+    padding: 11px 14px; cursor: pointer; color: var(--text-muted); font-weight: 600; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); background: var(--surface-2); }
+  .tab-btn.active { color: var(--accent-strong); border-bottom-color: var(--accent); }
+
+  #content { padding: 18px 20px 60px; max-width: 100%; }
+  .tab-section { max-width: 1500px; }
+
+  /* ---- banners ---- */
+  #banner-area { padding: 0 20px; position: sticky; top: 44px; z-index: 4; }
+  .banner {
+    background: var(--negative-bg); border: 1px solid #e3b2ac; border-left: 5px solid var(--negative);
+    color: #5c1712; border-radius: 5px; padding: 10px 14px; margin: 10px 0;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  }
+  .banner ul { margin: 6px 0 0 0; padding-left: 18px; }
+  .banner-findings { margin-top: 8px; }
+  .banner-findings-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  .banner-dismiss { background: none; border: none; font-size: 18px; line-height: 1; cursor: pointer; color: #5c1712; padding: 2px 4px; }
+
+  /* ---- generic panels/cards ---- */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 16px; margin: 16px 0; }
+  .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 16px; margin: 12px 0; }
+  .detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .effect-box {
+    background: var(--accent-tint); border: 1px solid #b7d2e3; border-left: 5px solid var(--accent);
+    border-radius: 5px; padding: 10px 14px; margin: 12px 0;
+  }
+  .effect-box h4 { color: var(--accent-strong); margin-top: 0; }
+  .callout-caution {
+    background: var(--caution-bg); border: 1px solid #e3cf95; border-left: 5px solid var(--caution);
+    border-radius: 5px; padding: 8px 12px; margin: 8px 0; font-size: 13px;
+  }
+
+  .grid-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 4px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 14px; }
+  .stat-card dl { margin: 0; }
+  .stat-card dl > div { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .stat-card dl > div:last-child { border-bottom: none; }
+  .stat-card dt { color: var(--text-muted); }
+  .stat-card dd { margin: 0; font-weight: 600; }
+
+  /* ---- tables ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 12.8px; }
+  th { text-align: left; background: var(--surface-2); padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: .02em; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:hover td { background: var(--surface-2); }
+  tr.row-selected td { background: var(--accent-tint); }
+  .mono-cell { font-family: var(--mono); font-size: 11.5px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---- badges ---- */
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
+  }
+  .badge-positive { background: var(--positive-bg); color: var(--positive); }
+  .badge-negative { background: var(--negative-bg); color: var(--negative); }
+  .badge-caution { background: var(--caution-bg); color: var(--caution); }
+  .badge-neutral { background: var(--neutral-bg); color: var(--neutral); }
+
+  .chip {
+    display: inline-block; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 7px; font-size: 11.5px; margin: 1px 3px 1px 0; font-family: var(--mono);
+  }
+
+  /* ---- forms ---- */
+  label { display: block; font-size: 11.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; }
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    border: 1px solid var(--border-strong); border-radius: 4px; padding: 6px 8px; background: #fff; width: 100%;
+  }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; margin: 10px 0; }
+  .toolbar { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar label { margin-bottom: 3px; }
+  .toolbar > div, .toolbar > select, .toolbar > input { min-width: 140px; }
+  .action-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin: 10px 0; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .action-row label { margin-bottom: 3px; }
+  .action-row input, .action-row select { width: auto; min-width: 160px; }
+  .inline-input { width: 140px !important; display: inline-block; margin-right: 6px; }
+  .decide-row > * { margin-right: 4px; }
+
+  .btn {
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 5px; padding: 6px 13px;
+    cursor: pointer; font-weight: 600; color: var(--text);
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn-primary { background: var(--accent); border-color: var(--accent-strong); color: #fff; }
+  .btn-primary:hover { background: var(--accent-strong); }
+  .btn-danger { background: #fff; border-color: var(--negative); color: var(--negative); }
+  .btn-danger:hover { background: var(--negative-bg); }
+  .link-btn { background: none; border: none; color: var(--accent-strong); font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; }
+
+  /* ---- def lists, threads ---- */
+  .def-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 20px; margin: 8px 0; }
+  .def-list > div { padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .def-list dt { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .02em; margin-bottom: 2px; }
+  .def-list dd { margin: 0; font-size: 13px; word-break: break-word; }
+  .plain-list { margin: 4px 0; padding-left: 18px; }
+  .plain-list li { margin-bottom: 8px; }
+  .finding-remedy { color: var(--text-muted); font-size: 12px; font-style: italic; margin-top: 2px; }
+  .thread-list { list-style: none; margin: 0 0 8px 0; padding: 0; }
+  .thread-list li { padding: 7px 10px; border: 1px solid var(--border); border-radius: 5px; margin-bottom: 6px; background: var(--surface-2); }
+  .thread-meta { font-size: 11px; color: var(--text-muted); }
+  .thread-text { font-size: 13px; margin-top: 2px; }
+  .value-pre { max-width: 100%; overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-size: 12px; margin: 0; }
+
+  /* ---- sign in ---- */
+  .signin-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .signin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 28px; max-width: 460px; width: 100%; }
+  .signin-card h1 { font-size: 19px; }
+  .signin-card hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+  .signin-reason { color: var(--negative); font-size: 12.5px; min-height: 16px; margin-top: 8px; }
+  .demo-token-btn { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; margin-top: 8px; gap: 2px; }
+  .demo-token-name { font-weight: 700; }
+  .demo-token-val { font-family: var(--mono); font-size: 11px; color: var(--text-muted); word-break: break-all; }
+
+  /* ---- modal ---- */
+  /* A class that sets display beats the hidden attribute, so state it once for
+     every element in this page that is toggled with el.hidden. */
+  [hidden] { display: none !important; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15, 22, 28, .55); display: flex; align-items: flex-start; justify-content: center; z-index: 50; padding: 32px 20px; overflow-y: auto; }
+  .modal-card { background: var(--surface); border-radius: 8px; padding: 22px; max-width: 460px; width: 100%; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  .token-value-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .token-value-row code { font-size: 13px; word-break: break-all; }
+
+  @media (max-width: 1000px) {
+    .form-grid, .grid-stats, .def-list { grid-template-columns: 1fr; }
+    .topbar { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="brand">Platform Mission Control</span>
+      <span class="brand-sub">Enterprise Brain governance desk</span>
+    </div>
+    <div class="topbar-right">
+      <span id="whoami-line"></span>
+      <button data-action="auth.signout">Sign out</button>
+    </div>
+  </header>
+
+  <nav class="tabbar" id="tabbar"></nav>
+  <div id="banner-area"></div>
+
+  <main id="content">
+    <section id="tab-overview" class="tab-section"></section>
+    <section id="tab-queue" class="tab-section" hidden></section>
+    <section id="tab-agents" class="tab-section" hidden></section>
+    <section id="tab-ledger" class="tab-section" hidden></section>
+    <section id="tab-grants" class="tab-section" hidden></section>
+    <section id="tab-fleets" class="tab-section" hidden></section>
+    <section id="tab-audit" class="tab-section" hidden></section>
+    <section id="tab-tokens" class="tab-section" hidden></section>
+  </main>
+</div>
+
+<div id="signin" class="signin-wrap">
+  <div class="signin-card">
+    <h1>Platform Mission Control</h1>
+    <p class="hint">This desk governs an enterprise agent brain: the review queue, the agent registry, the output ledger, grants, fleets, people and the audit trail. A platform token is required.</p>
+    <label for="token-input">Bearer token</label>
+    <input id="token-input" type="password" placeholder="ebp_..." autocomplete="off" />
+    <div class="action-row" style="border-top:none;padding-top:8px;">
+      <button class="btn btn-primary" data-action="auth.signin">Sign in</button>
+    </div>
+    <div id="signin-reason" class="signin-reason"></div>
+    <hr />
+    <button class="btn" data-action="auth.loaddemo">Load demo tokens</button>
+    <div id="demo-tokens"></div>
+  </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay" hidden>
+  <div class="modal-card" id="modal-card"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TABS = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'queue', label: 'Queue' },
+    { id: 'agents', label: 'Agents' },
+    { id: 'ledger', label: 'Ledger' },
+    { id: 'grants', label: 'Grants' },
+    { id: 'fleets', label: 'Fleets & People' },
+    { id: 'audit', label: 'Audit' },
+    { id: 'tokens', label: 'Tokens' },
+  ];
+
+  var state = {
+    token: null,
+    who: null,
+    tab: 'overview',
+    overview: null,
+    // Default to everything: filtering to state "open" alone hides items that
+    // are already assigned and in review, which is most of a working queue.
+    queue: { filter: '', items: [], selectedId: null },
+    agents: { list: [], reviews: [], selectedId: null, lastEffect: null },
+    ledger: { stateFilter: '', statusFilter: '', outputs: [], conflicts: [], edges: [], selectedId: null, detail: null, gateResults: null, lastEffect: null },
+    grants: { list: [] },
+    fleets: { list: [] },
+    employees: { list: [], lastOffboard: null },
+    audit: { action: '', outcome: '', employee: '', limit: 200, rows: [], summary: {}, usage: [], candidates: [] },
+    tokens: { list: [], minted: null },
+  };
+
+  var actions = {};
+
+  // ---------------------------------------------------------------------
+  // small utilities
+  // ---------------------------------------------------------------------
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var BADGE_CLASS = {
+    live: 'positive', verified: 'positive', approved: 'positive', allowed: 'positive',
+    active: 'positive', published: 'positive', issued: 'positive',
+    stale: 'negative', expired: 'negative', tombstoned: 'negative', revoked: 'negative',
+    rejected: 'negative', refused: 'negative', blocking: 'negative', former: 'negative',
+    gated: 'caution', unverified: 'caution', open: 'caution', in_review: 'caution', advisory: 'caution',
+    frozen: 'neutral', archived: 'neutral', retired: 'neutral', closed: 'neutral', internal: 'neutral',
+  };
+  function badge(word) {
+    if (word === null || word === undefined || word === '') return '';
+    var cls = BADGE_CLASS[word] || 'neutral';
+    return '<span class="badge badge-' + cls + '">' + esc(word) + '</span>';
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return esc(iso);
+    return d.toLocaleString();
+  }
+  function ageStr(iso) {
+    if (!iso) return 'unknown';
+    var ms = Date.now() - Date.parse(iso);
+    if (isNaN(ms)) return 'unknown';
+    var min = Math.floor(ms / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return min + 'm';
+    var hr = Math.floor(min / 60);
+    if (hr < 48) return hr + 'h';
+    return Math.floor(hr / 24) + 'd';
+  }
+  function shortValue(v) {
+    var s = typeof v === 'string' ? v : JSON.stringify(v);
+    if (s === undefined) s = '';
+    return s.length > 60 ? s.slice(0, 57) + '...' : s;
+  }
+  function parseValueInput(raw) {
+    var t = (raw || '').trim();
+    if (t === '') return t;
+    try { return JSON.parse(t); } catch (e) { return raw; }
+  }
+
+  // ---------------------------------------------------------------------
+  // API layer
+  // ---------------------------------------------------------------------
+  function ApiError(msg) { this.message = msg; }
+  ApiError.prototype = Object.create(Error.prototype);
+
+  function api(path, opts) {
+    opts = opts || {};
+    var headers = { 'content-type': 'application/json' };
+    if (state.token) headers.authorization = 'Bearer ' + state.token;
+    return fetch(path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    }).then(function (res) {
+      return res.json().catch(function () {
+        return { ok: false, reason: 'the server returned a non-JSON response' };
+      }).then(function (data) {
+        if (res.status === 401 || res.status === 403) {
+          enterSignedOut(data.reason || ('request refused with status ' + res.status));
+          throw new ApiError('auth');
+        }
+        if (!data.ok) {
+          showBanner(data);
+          throw new ApiError(data.reason || 'request failed');
+        }
+        return data;
+      });
+    }, function (err) {
+      showBanner({ reason: 'network error reaching the host: ' + (err && err.message) });
+      throw new ApiError('network');
+    });
+  }
+
+  function showBanner(data) {
+    var area = document.getElementById('banner-area');
+    var errs = (data.errors || []).map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('');
+    var findings = (data.review && data.review.findings) ? data.review.findings.map(function (f) {
+      return '<li>' + badge(f.severity) + ' ' + esc(f.finding) + '<div class="finding-remedy">Remedy: ' + esc(f.remedy) + '</div></li>';
+    }).join('') : '';
+    var el = document.createElement('div');
+    el.className = 'banner';
+    el.innerHTML =
+      '<div class="banner-body">' +
+        '<strong>' + esc(data.reason || 'Request failed') + '</strong>' +
+        (errs ? '<ul>' + errs + '</ul>' : '') +
+        (findings ? '<div class="banner-findings"><div class="banner-findings-title">Review findings</div><ul>' + findings + '</ul></div>' : '') +
+      '</div>' +
+      '<button class="banner-dismiss" aria-label="Dismiss">&times;</button>';
+    el.querySelector('.banner-dismiss').addEventListener('click', function () { el.remove(); });
+    area.prepend(el);
+  }
+
+  // ---------------------------------------------------------------------
+  // confirm modal
+  // ---------------------------------------------------------------------
+  function confirmAction(opts) {
+    var overlay = document.getElementById('modal-overlay');
+    var card = document.getElementById('modal-card');
+    card.innerHTML =
+      '<h2>' + esc(opts.title) + '</h2>' +
+      '<p>' + opts.message + '</p>' +
+      '<div class="modal-actions">' +
+        '<button class="btn" data-action="modal.cancel">Cancel</button>' +
+        '<button class="btn ' + (opts.danger === false ? 'btn-primary' : 'btn-danger') + '" id="modal-confirm-btn">' + esc(opts.confirmLabel || 'Confirm') + '</button>' +
+      '</div>';
+    overlay.hidden = false;
+    document.getElementById('modal-confirm-btn').onclick = function () {
+      overlay.hidden = true;
+      Promise.resolve(opts.onConfirm()).catch(function () {});
+    };
+  }
+  actions['modal.cancel'] = function () { document.getElementById('modal-overlay').hidden = true; };
+
+  // ---------------------------------------------------------------------
+  // auth
+  // ---------------------------------------------------------------------
+  function enterSignedOut(reason) {
+    state.token = null; state.who = null;
+    try { sessionStorage.removeItem('ebp_token'); } catch (e) {}
+    document.getElementById('app').hidden = true;
+    document.getElementById('signin').hidden = false;
+    document.getElementById('signin-reason').textContent = reason || '';
+  }
+
+  function trySignIn(token) {
+    var prevToken = state.token;
+    state.token = token;
+    return api('/api/whoami').then(function (data) {
+      if (data.kind !== 'platform') {
+        enterSignedOut('this token is kind "' + data.kind + '". Sign in with a platform token (prefix ebp_).');
+        return;
+      }
+      state.who = data.employee;
+      try { sessionStorage.setItem('ebp_token', token); } catch (e) {}
+      document.getElementById('signin').hidden = true;
+      document.getElementById('app').hidden = false;
+      renderWhoami();
+      setTab(state.tab || 'overview');
+    }).catch(function () {
+      state.token = prevToken;
+    });
+  }
+
+  function loadDemoTokens() {
+    var area = document.getElementById('demo-tokens');
+    area.innerHTML = '<p class="hint">Loading...</p>';
+    fetch('/api/dev/tokens').then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) { area.innerHTML = '<p class="hint">Demo tokens are not enabled on this host.</p>'; return; }
+      var platformTokens = (data.tokens || []).filter(function (t) { return t.kind === 'platform' && !t.revoked; });
+      if (!platformTokens.length) { area.innerHTML = '<p class="hint">No platform tokens are available on this host.</p>'; return; }
+      area.innerHTML = '<p class="hint">' + esc(data.note) + '</p>' + platformTokens.map(function (t) {
+        return '<button class="btn demo-token-btn" data-action="auth.usedemo" data-token="' + esc(t.token) + '">' +
+          '<span class="demo-token-name">' + esc(t.name) + ' (' + esc(t.employee) + ')</span>' +
+          '<span class="demo-token-val">' + esc(t.token) + '</span>' +
+        '</button>';
+      }).join('');
+    }).catch(function () {
+      area.innerHTML = '<p class="hint">Could not reach the host.</p>';
+    });
+  }
+
+  actions['auth.signin'] = function () {
+    var t = document.getElementById('token-input').value.trim();
+    if (t) trySignIn(t);
+  };
+  actions['auth.loaddemo'] = function () { loadDemoTokens(); };
+  actions['auth.usedemo'] = function (ds) { trySignIn(ds.token); };
+  actions['auth.signout'] = function () { enterSignedOut(''); };
+
+  function renderWhoami() {
+    document.getElementById('whoami-line').textContent = state.who ? (state.who.name + ' · ' + state.who.title) : '';
+  }
+
+  // ---------------------------------------------------------------------
+  // tabs
+  // ---------------------------------------------------------------------
+  function initTabsBar() {
+    var bar = document.getElementById('tabbar');
+    bar.innerHTML = TABS.map(function (t) {
+      return '<button class="tab-btn' + (t.id === 'overview' ? ' active' : '') + '" data-tab="' + t.id + '">' + esc(t.label) + '</button>';
+    }).join('');
+  }
+
+  function setTab(id) {
+    state.tab = id;
+    var btns = document.querySelectorAll('.tab-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', btns[i].dataset.tab === id);
+    var secs = document.querySelectorAll('.tab-section');
+    for (var j = 0; j < secs.length; j++) secs[j].hidden = secs[j].id !== 'tab-' + id;
+    loadTab(id);
+  }
+
+  function loadTab(id) {
+    var fn = {
+      overview: loadOverview, queue: loadQueue, agents: loadAgents, ledger: loadLedger,
+      grants: loadGrants, fleets: loadFleetsPeople, audit: loadAudit, tokens: loadTokens,
+    }[id];
+    if (fn) fn().catch(function () {});
+  }
+
+  // ---------------------------------------------------------------------
+  // Overview
+  // ---------------------------------------------------------------------
+  function loadOverview() {
+    return api('/api/platform/overview').then(function (data) {
+      state.overview = data;
+      renderOverview();
+    });
+  }
+
+  function renderOverview() {
+    var el = document.getElementById('tab-overview');
+    var o = state.overview;
+    if (!o) { el.innerHTML = '<p class="hint">Loading...</p>'; return; }
+    var byState = o.outputs.by_state || {};
+    var byStatus = o.outputs.by_status || {};
+    var auditRows = Object.keys(o.audit || {}).map(function (action) {
+      var v = o.audit[action];
+      return '<tr><td>' + esc(action) + '</td><td>' + v.total + '</td><td>' + v.refused + '</td></tr>';
+    }).join('');
+    var conflictItems = (o.conflicts || []).map(function (c) {
+      return '<li><strong>' + esc(c.kind) + '</strong> / ' + esc(c.subject) + ': outputs ' + c.outputs.map(esc).join(', ') + '</li>';
+    }).join('');
+    var candItems = (o.deprecation_candidates || []).map(function (c) {
+      return '<li><strong>' + esc(c.agent) + '</strong>: ' + esc(c.reason) + '. Policy: ' + esc(c.policy || 'none set') + '</li>';
+    }).join('');
+    var stateDl = Object.keys(byState).map(function (k) { return '<div><dt>' + badge(k) + '</dt><dd>' + byState[k] + '</dd></div>'; }).join('') || '<div><dt>none recorded</dt><dd>0</dd></div>';
+    var statusDl = Object.keys(byStatus).map(function (k) { return '<div><dt>' + badge(k) + '</dt><dd>' + byStatus[k] + '</dd></div>'; }).join('') || '<div><dt>none recorded</dt><dd>0</dd></div>';
+
+    el.innerHTML =
+      '<div class="grid-stats">' +
+        '<div class="stat-card"><h3>Agents</h3><dl>' +
+          '<div><dt>Total</dt><dd>' + o.agents.total + '</dd></div>' +
+          '<div><dt>Published</dt><dd>' + o.agents.published + '</dd></div>' +
+          '<div><dt>Retired</dt><dd>' + o.agents.retired + '</dd></div>' +
+          '<div><dt>Internal only</dt><dd>' + o.agents.internal + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="stat-card"><h3>Outputs by state</h3><dl>' + stateDl + '</dl></div>' +
+        '<div class="stat-card"><h3>Outputs by status</h3><dl>' + statusDl + '</dl></div>' +
+        '<div class="stat-card"><h3>Review queue</h3><dl>' +
+          '<div><dt>Open</dt><dd>' + o.queue.open + '</dd></div>' +
+          '<div><dt>Total</dt><dd>' + o.queue.total + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="stat-card"><h3>Grants</h3><dl>' +
+          '<div><dt>Live</dt><dd>' + o.grants.live + '</dd></div>' +
+          '<div><dt>Total</dt><dd>' + o.grants.total + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="stat-card"><h3>Fleets</h3><dl>' +
+          '<div><dt>Total</dt><dd>' + o.fleets.total + '</dd></div>' +
+          '<div><dt>Active</dt><dd>' + o.fleets.active + '</dd></div>' +
+          '<div><dt>Agents in fleets</dt><dd>' + o.fleets.agents + '</dd></div>' +
+        '</dl></div>' +
+      '</div>' +
+      '<div class="panel"><h3>Audit, by action</h3><div class="table-wrap"><table><thead><tr><th>Action</th><th>Total</th><th>Refused</th></tr></thead><tbody>' +
+        (auditRows || '<tr><td colspan="3">No audit rows yet.</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="panel"><h3>Deprecation candidates</h3>' +
+        (candItems ? '<ul class="plain-list">' + candItems + '</ul>' : '<p class="hint">No candidates in the current usage window.</p>') + '</div>' +
+      '<div class="panel"><h3>Live conflicts</h3>' +
+        '<p class="hint">The brain surfaces conflicts between disagreeing live outputs of the same kind and subject. It never resolves them; a human decides which figure is quotable.</p>' +
+        (conflictItems ? '<ul class="plain-list">' + conflictItems + '</ul>' : '<p class="hint">No live conflicts.</p>') + '</div>' +
+      '<div class="panel"><h3>Quality gates registered</h3><p>' +
+        ((o.gates || []).map(function (g) { return '<span class="chip">' + esc(g) + '</span>'; }).join(' ') || '<span class="hint">none</span>') + '</p></div>';
+  }
+
+  // ---------------------------------------------------------------------
+  // Queue
+  // ---------------------------------------------------------------------
+  function loadQueue() {
+    var q = state.queue;
+    var path = '/api/platform/queue' + (q.filter ? '?state=' + encodeURIComponent(q.filter) : '');
+    return api(path).then(function (data) {
+      q.items = data.items;
+      renderQueue();
+    });
+  }
+
+  function renderQueue() {
+    var el = document.getElementById('tab-queue');
+    var q = state.queue;
+    var rows = q.items.map(function (i) {
+      return '<tr class="' + (q.selectedId === i.id ? 'row-selected' : '') + '">' +
+        '<td><button class="link-btn" data-action="queue.select" data-id="' + esc(i.id) + '">' + esc(i.id) + '</button></td>' +
+        '<td>' + esc(i.type) + '</td>' +
+        '<td>' + esc(i.requester) + '</td>' +
+        '<td>' + esc(i.subject || '') + '</td>' +
+        '<td>' + esc(i.assignee || 'unassigned') + '</td>' +
+        '<td>' + ageStr(i.submitted_at) + '</td>' +
+        '<td>' + badge(i.state) + '</td>' +
+        '<td>' + (i.decision ? badge(i.decision) : '') + '</td>' +
+      '</tr>';
+    }).join('');
+    var selected = q.items.filter(function (i) { return i.id === q.selectedId; })[0];
+
+    el.innerHTML =
+      '<div class="toolbar">' +
+        '<div><label for="queue-filter">State</label><select id="queue-filter">' +
+          '<option value="open">Open</option><option value="in_review">In review</option>' +
+          '<option value="closed">Closed</option><option value="">All</option>' +
+        '</select></div>' +
+      '</div>' +
+      '<div class="table-wrap"><table><thead><tr><th>Id</th><th>Type</th><th>Requester</th><th>Subject</th><th>Assignee</th><th>Age</th><th>State</th><th>Decision</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="8">No items in this filter.</td></tr>') + '</tbody></table></div>' +
+      '<div id="queue-detail">' + (selected ? renderQueueDetail(selected) : '<p class="hint">Select a request to review its detail.</p>') + '</div>';
+
+    var sel = document.getElementById('queue-filter');
+    sel.value = q.filter;
+    sel.addEventListener('change', function (e) { q.filter = e.target.value; loadQueue(); });
+  }
+
+  function renderQueueDetail(item) {
+    var payload = item.payload || {};
+    var subjectDesc = '';
+    if (payload.subject) {
+      subjectDesc = payload.subject.type === 'employee' ? payload.subject.id : (payload.subject.fleet + '/' + payload.subject.agent);
+    }
+    // Both boards now speak one entry grammar: author, kind, body. A `change`
+    // entry is bookkeeping the board wrote itself, so it reads as such rather
+    // than as somebody saying something.
+    var thread = (item.thread || []).map(function (t) {
+      var who = t.author === 'system' ? 'board' : t.author;
+      var role = t.author === 'system' ? 'change' : t.kind;
+      var verdict = t.verdict ? ' ' + badge(t.verdict) : '';
+      var text = t.body || (t.kind === 'decision' ? '(no note)' : '');
+      return '<li><span class="thread-meta">' + esc(fmtDate(t.at)) + ' · ' + esc(who) +
+        ' (' + esc(role) + ')</span>' + verdict +
+        '<div class="thread-text">' + esc(text) + '</div></li>';
+    }).join('');
+    var closed = item.state === 'closed';
+    var suggestedAssignee = item.assignee || (state.who ? state.who.id : '');
+
+    var body =
+      '<div class="detail-card">' +
+        '<div class="detail-head"><h3>' + esc(item.id) + '</h3>' + badge(item.state) + ' ' + (item.decision ? badge(item.decision) : '') + '</div>' +
+        '<dl class="def-list">' +
+          '<div><dt>Type</dt><dd>' + esc(item.type) + '</dd></div>' +
+          '<div><dt>Requester</dt><dd>' + esc(item.requester) + '</dd></div>' +
+          '<div><dt>Subject</dt><dd>' + esc(subjectDesc) + '</dd></div>' +
+          '<div><dt>Agent</dt><dd>' + esc(payload.agent || '') + '</dd></div>' +
+          '<div><dt>Justification</dt><dd>' + esc(payload.justification || 'none given') + '</dd></div>' +
+          '<div><dt>Assignee</dt><dd>' + esc(item.assignee || 'unassigned') + '</dd></div>' +
+          '<div><dt>Created</dt><dd>' + esc(fmtDate(item.created_at)) + '</dd></div>' +
+        '</dl>' +
+        '<h4>Thread</h4><ul class="thread-list">' + thread + '</ul>';
+
+    if (closed) {
+      body += '<div class="effect-box"><h4>Decision applied</h4>' +
+        '<p>' + esc(item.decision) + ' by ' + esc(item.decided_by) + ' at ' + esc(fmtDate(item.decided_at)) + (item.note ? '. Note: ' + esc(item.note) : '') + '</p>' +
+        (item.effect ? renderQueueEffect(item.effect) : '<p class="hint">Rejected: no effect was applied.</p>') +
+        '</div>';
+    } else {
+      body +=
+        '<div class="action-row">' +
+          '<div><label for="assign-to">Assign to</label><input id="assign-to" type="text" value="' + esc(suggestedAssignee) + '" /></div>' +
+          '<button class="btn" data-action="queue.assign" data-id="' + esc(item.id) + '">Assign</button>' +
+        '</div>' +
+        '<div class="action-row">' +
+          '<div style="flex:1;min-width:200px;"><label for="comment-text">Comment</label><input id="comment-text" type="text" placeholder="Add a note to the thread" /></div>' +
+          '<button class="btn" data-action="queue.comment" data-id="' + esc(item.id) + '">Comment</button>' +
+        '</div>' +
+        '<div class="action-row decide-row">' +
+          '<div><label for="decide-decision">Decision</label><select id="decide-decision"><option value="approved">Approve</option><option value="rejected">Reject</option></select></div>' +
+          '<div><label for="decide-note">Note</label><input id="decide-note" type="text" placeholder="optional" /></div>' +
+          (item.type === 'grant_request' ? '<div><label for="decide-days">Time-box (days)</label><input id="decide-days" type="number" min="1" value="30" /></div>' : '') +
+          '<button class="btn btn-primary" data-action="queue.decide" data-id="' + esc(item.id) + '" data-type="' + esc(item.type) + '">Decide</button>' +
+        '</div>';
+    }
+    body += '</div>';
+    return body;
+  }
+
+  function renderQueueEffect(effect) {
+    if (effect.kind === 'grant_issued') {
+      return '<p>Effect applied: grant <code>' + esc(effect.grant) + '</code> issued, expires ' + esc(fmtDate(effect.expires_at)) + '.</p>';
+    }
+    if (effect.kind === 'access_widened') {
+      return '<p>Effect applied: <code>' + esc(effect.employee) + '</code> added to the access list of <code>' + esc(effect.agent) + '</code>.</p>';
+    }
+    return '<p>Effect applied: ' + esc(JSON.stringify(effect)) + '</p>';
+  }
+
+  actions['queue.select'] = function (ds) { state.queue.selectedId = ds.id; renderQueue(); };
+  actions['queue.assign'] = function (ds) {
+    var to = document.getElementById('assign-to').value.trim() || (state.who ? state.who.id : '');
+    return api('/api/platform/queue/' + ds.id + '/assign', { method: 'POST', body: { to: to } }).then(loadQueue);
+  };
+  actions['queue.comment'] = function (ds) {
+    var text = document.getElementById('comment-text').value.trim();
+    if (!text) return;
+    return api('/api/platform/queue/' + ds.id + '/comment', { method: 'POST', body: { text: text } }).then(loadQueue);
+  };
+  actions['queue.decide'] = function (ds) {
+    var decision = document.getElementById('decide-decision').value;
+    var note = document.getElementById('decide-note').value.trim() || null;
+    var daysEl = document.getElementById('decide-days');
+    var days = daysEl ? (Number(daysEl.value) || 30) : 30;
+    var effectMsg = decision === 'approved'
+      ? ' and apply its effect immediately (issue the grant or widen the access list).'
+      : ', with no effect applied.';
+    confirmAction({
+      title: 'Confirm decision',
+      message: 'This will mark request <strong>' + esc(ds.id) + '</strong> as <strong>' + esc(decision) + '</strong>' + effectMsg + ' This cannot be undone from here.',
+      confirmLabel: decision === 'approved' ? 'Approve' : 'Reject',
+      onConfirm: function () {
+        return api('/api/platform/queue/' + ds.id + '/decide', { method: 'POST', body: { decision: decision, note: note, days: days } }).then(function () {
+          state.queue.selectedId = ds.id;
+          return loadQueue();
+        });
+      },
+    });
+  };
+
+  // ---------------------------------------------------------------------
+  // Agents (registry)
+  // ---------------------------------------------------------------------
+  function loadAgents() {
+    return Promise.all([
+      api('/api/platform/registry'),
+      api('/api/platform/registry/reviews'),
+    ]).then(function (results) {
+      state.agents.list = results[0].agents;
+      state.agents.reviews = results[1].reviews;
+      renderAgents();
+    });
+  }
+
+  function renderAgents() {
+    var el = document.getElementById('tab-agents');
+    var A = state.agents;
+    var rows = A.list.map(function (a) {
+      var access = a.access_list === 'org' ? 'org' : (a.access_list || []).join(', ');
+      var connectors = (a.connectors || []).map(function (c) { return '<span class="chip">' + esc(c.system) + ':' + esc(c.auth_mode) + '</span>'; }).join(' ') || '<span class="hint">none</span>';
+      var findings = a.review_findings || [];
+      var blocking = findings.filter(function (f) { return f.severity === 'blocking'; }).length;
+      var advisory = findings.filter(function (f) { return f.severity === 'advisory'; }).length;
+      var findingsCell = blocking ? (badge('blocking') + ' &times;' + blocking) : (advisory ? (badge('advisory') + ' &times;' + advisory) : '<span class="hint">none</span>');
+      return '<tr class="' + (A.selectedId === a.id ? 'row-selected' : '') + '">' +
+        '<td><button class="link-btn" data-action="agents.select" data-id="' + esc(a.id) + '">' + esc(a.id) + '</button></td>' +
+        '<td>' + badge(a.lifecycle) + '</td>' +
+        '<td>' + esc(a.scope_label) + '</td>' +
+        '<td>' + esc(access) + '</td>' +
+        '<td>' + connectors + '</td>' +
+        '<td>' + (a.invocable ? 'yes' : 'no') + '</td>' +
+        '<td>' + (a.rate_limit ? a.rate_limit.per_minute + '/min' : 'n/a') + '</td>' +
+        '<td>' + esc(a.quality_gate) + '</td>' +
+        '<td>' + esc(a.dri) + '</td>' +
+        '<td>' + a.outputs + '</td>' +
+        '<td>' + findingsCell + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var selected = A.list.filter(function (a) { return a.id === A.selectedId; })[0];
+    var reviewLogRows = A.reviews.map(function (r) {
+      var findingsBadges = (r.findings || []).map(function (f) { return badge(f.severity); }).join(' ') || '<span class="hint">none</span>';
+      return '<tr><td>' + esc(fmtDate(r.at)) + '</td><td>' + esc(r.agent) + '</td><td>' + esc(r.reviewed_by || '') + '</td>' +
+        '<td>' + badge(r.outcome) + '</td><td>' + findingsBadges + '</td><td>' + esc(r.errors ? r.errors.join('; ') : '') + '</td></tr>';
+    }).join('');
+
+    el.innerHTML =
+      '<div class="table-wrap"><table><thead><tr><th>Id</th><th>Lifecycle</th><th>Scope</th><th>Access list</th><th>Connectors</th><th>Invocable</th><th>Rate limit</th><th>Quality gate</th><th>DRI</th><th>Outputs</th><th>Findings</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="11">No agents onboarded.</td></tr>') + '</tbody></table></div>' +
+      '<div id="agent-detail">' + (selected ? renderAgentDetail(selected) : '') + '</div>' +
+      '<div class="panel"><h3>Onboard an agent</h3>' + renderOnboardForm() + '</div>' +
+      '<div class="panel"><h3>Onboarding review log</h3><div class="table-wrap"><table><thead><tr><th>At</th><th>Agent</th><th>Reviewed by</th><th>Outcome</th><th>Findings</th><th>Errors</th></tr></thead>' +
+      '<tbody>' + (reviewLogRows || '<tr><td colspan="6">No review attempts yet.</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  function renderAgentDetail(a) {
+    var findings = (a.review_findings || []).map(function (f) {
+      return '<li>' + badge(f.severity) + ' ' + esc(f.finding) + '<div class="finding-remedy">Remedy: ' + esc(f.remedy) + '</div></li>';
+    }).join('') || '<li class="hint">No findings recorded.</li>';
+    var retired = a.lifecycle === 'retired';
+    var effect = (state.agents.lastEffect && state.agents.lastEffect.agentId === a.id) ? renderAgentEffect(state.agents.lastEffect) : '';
+
+    return '<div class="detail-card">' +
+      '<h3>' + esc(a.id) + '</h3>' + effect +
+      '<dl class="def-list">' +
+        '<div><dt>DRI</dt><dd>' + esc(a.dri) + '</dd></div>' +
+        '<div><dt>Produces</dt><dd>' + (a.produces || []).map(esc).join(', ') + '</dd></div>' +
+        '<div><dt>Cadence</dt><dd>' + esc(a.cadence || 'n/a') + '</dd></div>' +
+        '<div><dt>Version</dt><dd>' + a.version + '</dd></div>' +
+        '<div><dt>Published</dt><dd>' + esc(fmtDate(a.published_at)) + '</dd></div>' +
+        '<div><dt>Deprecation policy</dt><dd>' + esc(a.deprecation_policy || 'none') + '</dd></div>' +
+      '</dl>' +
+      '<h4>Review findings</h4><ul class="plain-list">' + findings + '</ul>' +
+      '<div class="action-row">' +
+        '<div><label for="retire-reason">Retirement reason</label><input id="retire-reason" type="text" placeholder="reason"' + (retired ? ' disabled' : '') + ' /></div>' +
+        '<button class="btn btn-danger" data-action="agents.retire" data-id="' + esc(a.id) + '"' + (retired ? ' disabled' : '') + '>Retire</button>' +
+      '</div>' +
+      (retired ? '<p class="hint">Already retired.</p>' : '') +
+      '<div class="action-row">' +
+        '<div><label for="po-subject">Output subject</label><input id="po-subject" type="text" placeholder="e.g. q3_revenue" /></div>' +
+        '<div><label for="po-value">Value (JSON or plain text)</label><input id="po-value" type="text" placeholder="12345 or {&quot;open&quot;:3}" /></div>' +
+        '<div><label for="po-source-system">Source system</label><input id="po-source-system" type="text" placeholder="warehouse" /></div>' +
+        '<div><label for="po-source-ref">Source ref</label><input id="po-source-ref" type="text" placeholder="table or query" /></div>' +
+        '<div><label for="po-ttl">TTL seconds (optional)</label><input id="po-ttl" type="number" placeholder="optional" /></div>' +
+        '<button class="btn" data-action="agents.publishOutput" data-id="' + esc(a.id) + '" data-kind="' + esc((a.produces || [])[0] || '') + '">Run cadence: publish output</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderAgentEffect(effect) {
+    if (effect.kind === 'retire') {
+      return '<div class="effect-box"><h4>Retirement applied</h4><p>Outputs marked stale or tombstoned (' + effect.outputs_marked.length + '): ' + (effect.outputs_marked.map(esc).join(', ') || 'none') + '</p></div>';
+    }
+    if (effect.kind === 'publish') {
+      return '<div class="effect-box"><h4>Output published</h4><p>Output <code>' + esc(effect.output.id) + '</code> published. Scope basis: ' + esc(effect.scope_basis) + '.</p></div>';
+    }
+    return '';
+  }
+
+  function renderOnboardForm() {
+    return (
+      '<div class="form-grid">' +
+        '<div><label for="ob-id">Id</label><input id="ob-id" type="text" placeholder="new-agent-id" /></div>' +
+        '<div><label for="ob-dri">DRI</label><input id="ob-dri" type="text" placeholder="platform-ops" value="' + esc(state.who ? state.who.id : '') + '" /></div>' +
+        '<div><label for="ob-produces">Produces (comma separated)</label><input id="ob-produces" type="text" placeholder="metric" /></div>' +
+        '<div><label for="ob-cadence">Cadence</label><input id="ob-cadence" type="text" placeholder="daily" /></div>' +
+        '<div><label for="ob-conn-system">Connector system</label><input id="ob-conn-system" type="text" placeholder="warehouse" /></div>' +
+        '<div><label for="ob-conn-auth">Connector auth mode</label><select id="ob-conn-auth"><option value="">no connector</option><option value="delegated">delegated</option><option value="service_account">service_account</option></select></div>' +
+        '<div><label for="ob-scope-type">Scope</label><select id="ob-scope-type"><option value="list">named list</option><option value="org">org-wide</option></select></div>' +
+        '<div><label for="ob-scope-members">Scope members (comma separated, if list)</label><input id="ob-scope-members" type="text" placeholder="alice, bob" /></div>' +
+        '<div><label for="ob-invocable"><input id="ob-invocable" type="checkbox" style="width:auto;margin-right:6px;" />Invocable</label></div>' +
+        '<div><label for="ob-rate">Rate limit (per minute)</label><input id="ob-rate" type="number" placeholder="30" /></div>' +
+        '<div><label for="ob-reachable"><input id="ob-reachable" type="checkbox" checked style="width:auto;margin-right:6px;" />Employee reachable</label></div>' +
+        '<div><label for="ob-quality-gate">Quality gate</label><input id="ob-quality-gate" type="text" placeholder="metric: numeric, non-negative" /></div>' +
+        '<div><label for="ob-deprecation">Deprecation policy</label><input id="ob-deprecation" type="text" placeholder="90d unused" /></div>' +
+      '</div>' +
+      '<div class="action-row" style="border-top:none;">' +
+        '<button class="btn" data-action="agents.onboardExample">Fill blocking example</button>' +
+        '<button class="btn" data-action="agents.reviewOnboard">Check scope (dry run)</button>' +
+        '<button class="btn btn-primary" data-action="agents.submitOnboard">Onboard</button>' +
+      '</div>' +
+      '<div id="onboard-review-output"></div>'
+    );
+  }
+
+  function buildManifestFromForm() {
+    var id = document.getElementById('ob-id').value.trim();
+    var dri = document.getElementById('ob-dri').value.trim();
+    var produces = document.getElementById('ob-produces').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var cadence = document.getElementById('ob-cadence').value.trim();
+    var connSystem = document.getElementById('ob-conn-system').value.trim();
+    var connAuth = document.getElementById('ob-conn-auth').value;
+    var scopeType = document.getElementById('ob-scope-type').value;
+    var members = document.getElementById('ob-scope-members').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var invocable = document.getElementById('ob-invocable').checked;
+    var rate = Number(document.getElementById('ob-rate').value) || 0;
+    var reachable = document.getElementById('ob-reachable').checked;
+    var qualityGate = document.getElementById('ob-quality-gate').value.trim();
+    var deprecation = document.getElementById('ob-deprecation').value.trim();
+
+    var manifest = {
+      id: id, dri: dri, produces: produces, cadence: cadence,
+      connectors: (connSystem && connAuth) ? [{ system: connSystem, auth_mode: connAuth }] : [],
+      scope: scopeType === 'org' ? { type: 'org' } : { type: 'list', members: members },
+      invocable: invocable,
+      employee_reachable: reachable,
+      quality_gate: qualityGate,
+      deprecation_policy: deprecation,
+    };
+    if (invocable) manifest.rate_limit = { per_minute: rate };
+    return manifest;
+  }
+
+  function renderReviewFindings(review) {
+    if (!review.findings.length) return '<p class="hint">No findings. Scope review passed clean.</p>';
+    return '<ul class="plain-list">' + review.findings.map(function (f) {
+      return '<li>' + badge(f.severity) + ' ' + esc(f.finding) + '<div class="finding-remedy">Remedy: ' + esc(f.remedy) + '</div></li>';
+    }).join('') + '</ul>';
+  }
+
+  actions['agents.select'] = function (ds) { state.agents.selectedId = ds.id; renderAgents(); };
+
+  actions['agents.onboardExample'] = function () {
+    document.getElementById('ob-id').value = 'warehouse-firehose-demo';
+    document.getElementById('ob-dri').value = state.who ? state.who.id : 'platform-ops';
+    document.getElementById('ob-produces').value = 'metric';
+    document.getElementById('ob-cadence').value = 'daily';
+    document.getElementById('ob-conn-system').value = 'warehouse';
+    document.getElementById('ob-conn-auth').value = 'service_account';
+    document.getElementById('ob-scope-type').value = 'org';
+    document.getElementById('ob-scope-members').value = '';
+    document.getElementById('ob-invocable').checked = true;
+    document.getElementById('ob-rate').value = '30';
+    document.getElementById('ob-reachable').checked = true;
+    document.getElementById('ob-quality-gate').value = 'metric: numeric, non-negative, as_of within 7 days';
+    document.getElementById('ob-deprecation').value = '90d unused';
+  };
+
+  actions['agents.reviewOnboard'] = function () {
+    var manifest = buildManifestFromForm();
+    return api('/api/platform/registry/review', { method: 'POST', body: { manifest: manifest } }).then(function (data) {
+      document.getElementById('onboard-review-output').innerHTML = renderReviewFindings(data.review);
+    });
+  };
+
+  actions['agents.submitOnboard'] = function () {
+    var manifest = buildManifestFromForm();
+    return api('/api/platform/registry/review', { method: 'POST', body: { manifest: manifest } }).then(function (dry) {
+      document.getElementById('onboard-review-output').innerHTML = renderReviewFindings(dry.review);
+      if (dry.review.blocking) {
+        showBanner({ reason: 'Onboarding refused: the scope review is blocking. Fix the finding below and try again.', review: dry.review });
+        return;
+      }
+      return api('/api/platform/registry', { method: 'POST', body: { manifest: manifest } }).then(loadAgents);
+    });
+  };
+
+  actions['agents.retire'] = function (ds) {
+    var reason = document.getElementById('retire-reason').value.trim();
+    confirmAction({
+      title: 'Retire agent',
+      message: 'This retires <strong>' + esc(ds.id) + '</strong> and marks every live output it produced as tombstoned. This cannot be undone.',
+      confirmLabel: 'Retire',
+      onConfirm: function () {
+        return api('/api/platform/registry/' + ds.id + '/retire', { method: 'POST', body: { reason: reason || 'retired by platform team' } }).then(function (res) {
+          state.agents.lastEffect = { kind: 'retire', agentId: ds.id, outputs_marked: res.outputs_marked };
+          state.agents.selectedId = ds.id;
+          return loadAgents();
+        });
+      },
+    });
+  };
+
+  actions['agents.publishOutput'] = function (ds) {
+    var subject = document.getElementById('po-subject').value.trim();
+    var value = parseValueInput(document.getElementById('po-value').value);
+    var sys = document.getElementById('po-source-system').value.trim();
+    var ref = document.getElementById('po-source-ref').value.trim();
+    var ttl = document.getElementById('po-ttl').value;
+    var body = {
+      kind: ds.kind || undefined,
+      body: { subject: subject, value: value },
+      sources: sys ? [{ system: sys, ref: ref }] : [],
+      derived_from: [],
+    };
+    if (ttl) body.ttl_seconds = Number(ttl);
+    return api('/api/platform/registry/' + ds.id + '/publish-output', { method: 'POST', body: body }).then(function (res) {
+      state.agents.lastEffect = { kind: 'publish', agentId: ds.id, output: res.output, scope_basis: res.scope_basis };
+      state.agents.selectedId = ds.id;
+      return loadAgents();
+    });
+  };
+
+  // ---------------------------------------------------------------------
+  // Ledger
+  // ---------------------------------------------------------------------
+  function loadLedger() {
+    return api('/api/platform/ledger').then(function (data) {
+      state.ledger.outputs = data.outputs;
+      state.ledger.conflicts = data.conflicts;
+      state.ledger.edges = data.edges;
+      if (state.ledger.selectedId) {
+        return api('/api/platform/ledger/' + state.ledger.selectedId).then(function (d) {
+          state.ledger.detail = d;
+          renderLedger();
+        }, function () { state.ledger.detail = null; renderLedger(); });
+      }
+      renderLedger();
+    });
+  }
+
+  function renderLedger() {
+    var el = document.getElementById('tab-ledger');
+    var L = state.ledger;
+    var filtered = L.outputs.filter(function (o) {
+      return (!L.stateFilter || o.state === L.stateFilter) && (!L.statusFilter || o.status === L.statusFilter);
+    });
+    var rows = filtered.map(function (o) {
+      return '<tr class="' + (L.selectedId === o.id ? 'row-selected' : '') + '">' +
+        '<td><button class="link-btn" data-action="ledger.select" data-id="' + esc(o.id) + '">' + esc(o.id) + '</button></td>' +
+        '<td>' + esc(o.kind) + '</td>' +
+        '<td>' + esc(o.subject || '') + '</td>' +
+        '<td class="mono-cell" title="' + esc(shortValue(o.value)) + '">' + esc(shortValue(o.value)) + '</td>' +
+        '<td>' + esc(o.producer.fleet) + '/' + esc(o.producer.agent) + '</td>' +
+        '<td>' + badge(o.state) + '</td>' +
+        '<td>' + badge(o.status) + '</td>' +
+        '<td>' + esc(o.scope) + '</td>' +
+        '<td>' + esc(fmtDate(o.as_of)) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var conflictNote = L.conflicts.length
+      ? '<p class="hint">Live conflicts: ' + L.conflicts.map(function (c) { return esc(c.kind + '/' + c.subject); }).join('; ') + '. The brain surfaces these; it never resolves them.</p>'
+      : '';
+    var selected = L.outputs.filter(function (o) { return o.id === L.selectedId; })[0];
+
+    el.innerHTML =
+      '<div class="toolbar">' +
+        '<div><label for="ledger-state-filter">State</label><select id="ledger-state-filter">' +
+          '<option value="">All</option><option value="live">live</option><option value="stale">stale</option>' +
+          '<option value="tombstoned">tombstoned</option><option value="frozen">frozen</option>' +
+        '</select></div>' +
+        '<div><label for="ledger-status-filter">Status</label><select id="ledger-status-filter">' +
+          '<option value="">All</option><option value="verified">verified</option><option value="gated">gated</option><option value="unverified">unverified</option>' +
+        '</select></div>' +
+        '<button class="btn" data-action="ledger.runAllGates">Run all quality gates</button>' +
+      '</div>' +
+      conflictNote +
+      '<div class="table-wrap"><table><thead><tr><th>Id</th><th>Kind</th><th>Subject</th><th>Value</th><th>Producer</th><th>State</th><th>Status</th><th>Scope</th><th>As of</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="9">No outputs match this filter.</td></tr>') + '</tbody></table></div>' +
+      '<div id="ledger-gate-results">' + (L.gateResults ? renderGateResults(L.gateResults) : '') + '</div>' +
+      '<div id="ledger-detail">' + (selected ? renderLedgerDetail(selected) : '<p class="hint">Select an output to see its ancestry, scope basis and actions.</p>') + '</div>';
+
+    var sSel = document.getElementById('ledger-state-filter');
+    var stSel = document.getElementById('ledger-status-filter');
+    sSel.value = L.stateFilter; stSel.value = L.statusFilter;
+    sSel.addEventListener('change', function (e) { L.stateFilter = e.target.value; renderLedger(); });
+    stSel.addEventListener('change', function (e) { L.statusFilter = e.target.value; renderLedger(); });
+  }
+
+  function renderGateResults(results) {
+    var rows = results.map(function (r) {
+      var evidence = r.evidence !== undefined && r.evidence !== null ? (typeof r.evidence === 'string' ? r.evidence : JSON.stringify(r.evidence)) : (r.reason || '');
+      return '<tr><td>' + esc(r.id) + '</td><td>' + badge(r.status || 'error') + '</td><td>' + esc(evidence) + '</td></tr>';
+    }).join('');
+    return '<div class="panel"><h3>Gate run results</h3><div class="table-wrap"><table><thead><tr><th>Output</th><th>Status</th><th>Evidence or reason</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  }
+
+  function renderLedgerDetail(row) {
+    var detail = (state.ledger.detail && state.ledger.detail.output.id === row.id) ? state.ledger.detail : null;
+    if (!detail) return '<div class="detail-card"><p class="hint">Loading detail for ' + esc(row.id) + '...</p></div>';
+    var o = detail.output;
+    var ancestry = detail.ancestry || [];
+    var descendants = detail.descendants || [];
+    var builtOn = ancestry.length
+      ? '<ul class="plain-list">' + ancestry.map(function (a) {
+          var indent = new Array((a.depth - 1) * 3 + 1).join('&nbsp;');
+          return '<li>' + indent + 'depth ' + a.depth + ': <code>' + esc(a.id) + '</code> (' + esc(a.kind) + ', ' + badge(a.state) + ', produced by ' + esc(a.producer.agent) + ')</li>';
+        }).join('') + '</ul>'
+      : '<p class="hint">Root output: nothing upstream.</p>';
+    var desc = descendants.length ? descendants.map(esc).join(', ') : 'none';
+    var overruled = o.scope_declared_by_producer
+      ? '<div class="callout-caution">The producer asked for scope <code>' + esc(JSON.stringify(o.scope_declared_by_producer)) + '</code> and was overruled. Actual scope: ' + esc(o.scope) + '.</div>'
+      : '';
+    var effect = (state.ledger.lastEffect && state.ledger.lastEffect.id === o.id) ? renderLedgerEffect(state.ledger.lastEffect) : '';
+    var statusEvidence = o.status_evidence ? esc(typeof o.status_evidence === 'string' ? o.status_evidence : JSON.stringify(o.status_evidence)) : '';
+    var tombstoned = o.state === 'tombstoned';
+
+    return '<div class="detail-card">' +
+      '<h3>' + esc(o.id) + '</h3>' + effect +
+      '<dl class="def-list">' +
+        '<div><dt>Kind</dt><dd>' + esc(o.kind) + '</dd></div>' +
+        '<div><dt>Subject</dt><dd>' + esc(o.subject || '') + '</dd></div>' +
+        '<div><dt>Producer</dt><dd>' + esc(o.producer.fleet) + '/' + esc(o.producer.agent) + ' (' + esc(o.producer.identity) + ')</dd></div>' +
+        '<div><dt>State</dt><dd>' + badge(o.state) + '</dd></div>' +
+        '<div><dt>Status</dt><dd>' + badge(o.status) + ' ' + statusEvidence + '</dd></div>' +
+        '<div><dt>Scope</dt><dd>' + esc(o.scope) + '</dd></div>' +
+        '<div><dt>Scope basis</dt><dd>' + esc(o.scope_basis || '') + '</dd></div>' +
+        '<div><dt>Sources</dt><dd>' + ((o.sources || []).map(function (s) { return esc(s.system + ':' + s.ref); }).join(', ') || 'none') + '</dd></div>' +
+        '<div><dt>Derived from</dt><dd>' + ((o.derived_from || []).map(esc).join(', ') || 'none (root output)') + '</dd></div>' +
+        '<div><dt>Supersedes</dt><dd>' + esc(o.supersedes || 'none') + '</dd></div>' +
+        '<div><dt>As of</dt><dd>' + esc(fmtDate(o.as_of)) + '</dd></div>' +
+        '<div><dt>Published</dt><dd>' + esc(fmtDate(o.published_at)) + '</dd></div>' +
+        (o.stale_reason ? '<div><dt>Stale reason</dt><dd>' + esc(o.stale_reason) + '</dd></div>' : '') +
+        (o.tombstone_reason ? '<div><dt>Tombstone reason</dt><dd>' + esc(o.tombstone_reason) + '</dd></div>' : '') +
+        '<div><dt>Signer</dt><dd>' + badge(o.signer_state) + '</dd></div>' +
+      '</dl>' +
+      overruled +
+      '<h4>Value</h4><pre class="value-pre">' + esc(typeof o.value === 'string' ? o.value : JSON.stringify(o.value, null, 2)) + '</pre>' +
+      '<h4>Built on (ancestry)</h4>' + builtOn +
+      '<h4>Descendants</h4><p>' + esc(desc) + '</p>' +
+      '<div class="action-row">' +
+        '<div><label for="correct-value">Correction value (JSON or plain text)</label><input id="correct-value" type="text" placeholder="e.g. 12500000" /></div>' +
+        '<div><label for="correct-new-id">New id (optional)</label><input id="correct-new-id" type="text" placeholder="optional" /></div>' +
+        '<button class="btn" data-action="ledger.correct" data-id="' + esc(o.id) + '"' + (tombstoned ? ' disabled' : '') + '>Correct</button>' +
+      '</div>' +
+      '<div class="action-row">' +
+        '<div><label for="tombstone-reason">Tombstone reason</label><input id="tombstone-reason" type="text" placeholder="reason" /></div>' +
+        '<button class="btn btn-danger" data-action="ledger.tombstone" data-id="' + esc(o.id) + '"' + (tombstoned ? ' disabled' : '') + '>Tombstone</button>' +
+      '</div>' +
+      '<div class="action-row">' +
+        '<button class="btn" data-action="ledger.runGate" data-id="' + esc(o.id) + '">Run quality gate for this output</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderLedgerEffect(eff) {
+    if (eff.kind === 'correct') {
+      return '<div class="effect-box"><h4>Correction applied</h4><p>New output <code>' + esc(eff.id) + '</code> supersedes <code>' + esc(eff.oldId) + '</code>.</p>' +
+        '<p><strong>Invalidated ' + eff.invalidated.length + ' output(s):</strong> ' + (eff.invalidated.map(esc).join(', ') || 'none') + '</p></div>';
+    }
+    if (eff.kind === 'tombstone') {
+      return '<div class="effect-box"><h4>Tombstone applied</h4><p><strong>Cascaded to ' + eff.cascaded.length + ' output(s):</strong> ' + (eff.cascaded.map(esc).join(', ') || 'none') + '</p></div>';
+    }
+    return '';
+  }
+
+  actions['ledger.select'] = function (ds) {
+    state.ledger.selectedId = ds.id;
+    state.ledger.detail = null;
+    renderLedger();
+    return api('/api/platform/ledger/' + ds.id).then(function (data) {
+      state.ledger.detail = data;
+      renderLedger();
+    }).catch(function () {});
+  };
+
+  actions['ledger.runAllGates'] = function () {
+    return api('/api/platform/gates/run', { method: 'POST', body: {} }).then(function (data) {
+      state.ledger.gateResults = data.results;
+      return loadLedger();
+    });
+  };
+  actions['ledger.runGate'] = function (ds) {
+    return api('/api/platform/gates/run', { method: 'POST', body: { id: ds.id } }).then(function (data) {
+      state.ledger.gateResults = data.results;
+      return loadLedger();
+    });
+  };
+
+  actions['ledger.correct'] = function (ds) {
+    var value = parseValueInput(document.getElementById('correct-value').value);
+    var newId = document.getElementById('correct-new-id').value.trim() || undefined;
+    confirmAction({
+      title: 'Correct this output',
+      message: 'This publishes a new value for <strong>' + esc(ds.id) + '</strong> and marks it, and everything derived from it, as stale. The old output is superseded, not deleted.',
+      confirmLabel: 'Correct',
+      onConfirm: function () {
+        return api('/api/platform/ledger/correct', { method: 'POST', body: { id: ds.id, value: value, new_id: newId } }).then(function (res) {
+          state.ledger.lastEffect = { kind: 'correct', id: res.output.id, oldId: ds.id, invalidated: res.invalidated };
+          state.ledger.selectedId = res.output.id;
+          return loadLedger();
+        });
+      },
+    });
+  };
+
+  actions['ledger.tombstone'] = function (ds) {
+    var reason = document.getElementById('tombstone-reason').value.trim();
+    confirmAction({
+      title: 'Tombstone this output',
+      message: 'This removes the body of <strong>' + esc(ds.id) + '</strong> and marks everything derived from it as stale. Provenance is kept; this is not a hard delete.',
+      confirmLabel: 'Tombstone',
+      onConfirm: function () {
+        return api('/api/platform/ledger/tombstone', { method: 'POST', body: { id: ds.id, reason: reason || 'deletion request' } }).then(function (res) {
+          state.ledger.lastEffect = { kind: 'tombstone', id: ds.id, cascaded: res.cascaded };
+          return loadLedger();
+        });
+      },
+    });
+  };
+
+  // ---------------------------------------------------------------------
+  // Grants
+  // ---------------------------------------------------------------------
+  function loadGrants() {
+    return api('/api/platform/grants').then(function (data) {
+      state.grants.list = data.grants;
+      renderGrants();
+    });
+  }
+
+  function grantStatusWord(g) {
+    if (g.revoked) return 'revoked';
+    if (!g.live) return 'expired';
+    return 'live';
+  }
+
+  function renderGrants() {
+    var el = document.getElementById('tab-grants');
+    var rows = state.grants.list.map(function (g) {
+      return '<tr>' +
+        '<td><code>' + esc(g.id) + '</code></td>' +
+        '<td>' + esc(g.subject_label) + '</td>' +
+        '<td>' + esc(g.agent) + '</td>' +
+        '<td>' + esc(g.approved_by) + '</td>' +
+        '<td>' + esc(g.justification || '') + '</td>' +
+        '<td>' + esc(fmtDate(g.issued_at)) + '</td>' +
+        '<td>' + esc(fmtDate(g.expires_at)) + ' (' + g.expires_in_days + 'd)</td>' +
+        '<td>' + badge(grantStatusWord(g)) + '</td>' +
+        '<td>' + (g.live ? '<button class="btn btn-danger" data-action="grants.revoke" data-id="' + esc(g.id) + '">Revoke</button>' : '') + '</td>' +
+      '</tr>';
+    }).join('');
+    el.innerHTML =
+      '<div class="table-wrap"><table><thead><tr><th>Grant</th><th>Subject</th><th>Agent</th><th>Approved by</th><th>Justification</th><th>Issued</th><th>Expires</th><th>Status</th><th></th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="9">No grants issued.</td></tr>') + '</tbody></table></div>';
+  }
+
+  actions['grants.revoke'] = function (ds) {
+    confirmAction({
+      title: 'Revoke grant',
+      message: 'This revokes grant <strong>' + esc(ds.id) + '</strong> immediately. The subject loses invoke access to this agent with no cleanup step.',
+      confirmLabel: 'Revoke',
+      onConfirm: function () {
+        return api('/api/platform/grants/' + ds.id + '/revoke', { method: 'POST' }).then(loadGrants);
+      },
+    });
+  };
+
+  // ---------------------------------------------------------------------
+  // Fleets & People
+  // ---------------------------------------------------------------------
+  function loadFleetsPeople() {
+    return Promise.all([
+      api('/api/platform/fleets'),
+      api('/api/platform/employees'),
+    ]).then(function (results) {
+      state.fleets.list = results[0].fleets;
+      state.employees.list = results[1].employees;
+      renderFleetsPeople();
+    });
+  }
+
+  function renderFleetsPeople() {
+    var el = document.getElementById('tab-fleets');
+    var fleetRows = state.fleets.list.map(function (f) {
+      var agentsList = (f.agents || []).map(function (a) { return esc(a.id); }).join(', ') || 'none';
+      var actionsCell = f.state === 'active'
+        ? '<input class="inline-input" type="text" id="archive-reason-' + esc(f.fleet) + '" placeholder="reason" />' +
+          '<button class="btn btn-danger" data-action="fleets.archive" data-id="' + esc(f.fleet) + '">Archive</button>'
+        : '';
+      return '<tr>' +
+        '<td><code>' + esc(f.fleet) + '</code></td>' +
+        '<td>' + esc(f.owner) + '</td>' +
+        '<td>' + esc(f.harness) + '</td>' +
+        '<td>' + badge(f.state) + '</td>' +
+        '<td>' + agentsList + '</td>' +
+        '<td>' + f.grants + '</td>' +
+        '<td>' + f.outputs + '</td>' +
+        '<td>' + actionsCell + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var empRows = state.employees.list.map(function (e) {
+      var fleetsList = (e.fleets || []).map(esc).join(', ') || 'none';
+      var actionsCell = e.status === 'active'
+        ? '<button class="btn btn-danger" data-action="employees.offboard" data-id="' + esc(e.id) + '">Offboard</button>'
+        : '';
+      return '<tr>' +
+        '<td>' + esc(e.id) + '</td>' +
+        '<td>' + esc(e.name) + '</td>' +
+        '<td>' + esc(e.title) + '</td>' +
+        '<td>' + esc(e.role) + '</td>' +
+        '<td>' + badge(e.status === 'active' ? 'active' : 'former') + '</td>' +
+        '<td>' + fleetsList + '</td>' +
+        '<td>' + e.signed_outputs + '</td>' +
+        '<td>' + actionsCell + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var offboardBox = state.employees.lastOffboard
+      ? '<div class="effect-box"><h4>Offboarding applied</h4><p>Employee <code>' + esc(state.employees.lastOffboard.employee) + '</code>: froze ' +
+        state.employees.lastOffboard.frozen.length + ' output(s) (' + (state.employees.lastOffboard.frozen.map(esc).join(', ') || 'none') + '); archived fleet(s) ' +
+        (state.employees.lastOffboard.fleets_archived.map(esc).join(', ') || 'none') + '.</p></div>'
+      : '';
+
+    el.innerHTML =
+      '<div class="panel"><h3>Fleet roster</h3>' +
+        '<p class="hint">No route here can read a fleet\'s own board. That absence is deliberate: the platform sees what crossed the boundary, not what a fleet was thinking.</p>' +
+        '<div class="table-wrap"><table><thead><tr><th>Fleet</th><th>Owner</th><th>Harness</th><th>State</th><th>Agents</th><th>Live grants</th><th>Outputs</th><th></th></tr></thead>' +
+        '<tbody>' + (fleetRows || '<tr><td colspan="8">No fleets registered.</td></tr>') + '</tbody></table></div>' +
+      '</div>' +
+      '<div class="panel"><h3>Employee directory</h3>' + offboardBox +
+        '<div class="table-wrap"><table><thead><tr><th>Id</th><th>Name</th><th>Title</th><th>Role</th><th>Status</th><th>Fleets</th><th>Signed outputs</th><th></th></tr></thead>' +
+        '<tbody>' + (empRows || '<tr><td colspan="8">No employees.</td></tr>') + '</tbody></table></div>' +
+      '</div>';
+  }
+
+  actions['fleets.archive'] = function (ds) {
+    var reasonEl = document.getElementById('archive-reason-' + ds.id);
+    var reason = reasonEl ? reasonEl.value.trim() : '';
+    confirmAction({
+      title: 'Archive fleet',
+      message: 'This archives fleet <strong>' + esc(ds.id) + '</strong>. It stops appearing as an active fleet for new grants.',
+      confirmLabel: 'Archive',
+      onConfirm: function () {
+        return api('/api/platform/fleets/' + ds.id + '/archive', { method: 'POST', body: { reason: reason || 'archived by platform team' } }).then(loadFleetsPeople);
+      },
+    });
+  };
+
+  actions['employees.offboard'] = function (ds) {
+    confirmAction({
+      title: 'Offboard employee',
+      message: 'This offboards <strong>' + esc(ds.id) + '</strong>. It freezes every output they signed, archives every fleet they own, and revokes every one of their tokens. This takes effect immediately and cannot be undone from here.',
+      confirmLabel: 'Offboard',
+      onConfirm: function () {
+        return api('/api/platform/employees/' + ds.id + '/offboard', { method: 'POST' }).then(function (res) {
+          state.employees.lastOffboard = res;
+          return loadFleetsPeople();
+        });
+      },
+    });
+  };
+
+  // ---------------------------------------------------------------------
+  // Audit
+  // ---------------------------------------------------------------------
+  var AUDIT_ACTIONS = ['consume', 'invoke', 'publish', 'grant', 'decision', 'auth', 'lifecycle'];
+
+  function loadAudit() {
+    var A = state.audit;
+    var qs = [];
+    if (A.action) qs.push('action=' + encodeURIComponent(A.action));
+    if (A.outcome) qs.push('outcome=' + encodeURIComponent(A.outcome));
+    if (A.employee) qs.push('employee=' + encodeURIComponent(A.employee));
+    qs.push('limit=' + (A.limit || 200));
+    return Promise.all([
+      api('/api/platform/audit?' + qs.join('&')),
+      api('/api/platform/telemetry'),
+    ]).then(function (results) {
+      A.rows = results[0].rows;
+      A.summary = results[0].summary;
+      A.usage = results[1].usage;
+      A.candidates = results[1].candidates;
+      renderAudit();
+    });
+  }
+
+  function renderAudit() {
+    var el = document.getElementById('tab-audit');
+    var A = state.audit;
+    var rows = A.rows.map(function (r) {
+      var via = r.via ? esc(r.via.fleet + '/' + r.via.agent) : '';
+      var detail = r.detail ? esc(JSON.stringify(r.detail)) : '';
+      return '<tr>' +
+        '<td>' + esc(fmtDate(r.at)) + '</td>' +
+        '<td>' + esc(r.action) + '</td>' +
+        '<td>' + esc(r.employee || '') + '</td>' +
+        '<td>' + via + '</td>' +
+        '<td>' + esc(r.target || '') + '</td>' +
+        '<td>' + badge(r.outcome) + '</td>' +
+        '<td>' + esc(r.stage || '') + '</td>' +
+        '<td>' + esc(r.reason || '') + '</td>' +
+        '<td class="mono-cell" title="' + detail + '">' + detail + '</td>' +
+      '</tr>';
+    }).join('');
+    var usageRows = A.usage.map(function (u) {
+      return '<tr><td>' + esc(u.agent) + '</td><td>' + u.consumes + '</td><td>' + u.invokes + '</td><td>' + u.refusals + '</td><td>' + u.outputs + '</td><td>' + u.distinct_employees + '</td><td>' + u.total + '</td></tr>';
+    }).join('');
+    var candItems = A.candidates.map(function (c) {
+      return '<li><strong>' + esc(c.agent) + '</strong>: ' + esc(c.reason) + '. Policy: ' + esc(c.policy || 'none set') + '</li>';
+    }).join('');
+
+    el.innerHTML =
+      '<div class="toolbar">' +
+        '<div><label for="audit-action">Action</label><select id="audit-action"><option value="">All</option>' +
+          AUDIT_ACTIONS.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div><label for="audit-outcome">Outcome</label><select id="audit-outcome"><option value="">All</option><option value="allowed">allowed</option><option value="refused">refused</option></select></div>' +
+        '<div><label for="audit-employee">Employee</label><input id="audit-employee" type="text" value="' + esc(A.employee) + '" placeholder="employee id" /></div>' +
+        '<button class="btn" data-action="audit.applyFilters">Apply</button>' +
+      '</div>' +
+      '<div class="table-wrap"><table><thead><tr><th>At</th><th>Action</th><th>Employee</th><th>Via</th><th>Target</th><th>Outcome</th><th>Stage</th><th>Reason</th><th>Detail</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="9">No audit rows match this filter.</td></tr>') + '</tbody></table></div>' +
+      '<div class="panel"><h3>Usage, last 30 days</h3><div class="table-wrap"><table><thead><tr><th>Agent</th><th>Consumes</th><th>Invokes</th><th>Refusals</th><th>Outputs</th><th>Distinct employees</th><th>Total</th></tr></thead>' +
+      '<tbody>' + (usageRows || '<tr><td colspan="7">No usage recorded.</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="panel"><h3>Deprecation candidates</h3>' + (candItems ? '<ul class="plain-list">' + candItems + '</ul>' : '<p class="hint">No candidates.</p>') + '</div>';
+
+    document.getElementById('audit-action').value = A.action;
+    document.getElementById('audit-outcome').value = A.outcome;
+    document.getElementById('audit-action').addEventListener('change', function (e) { A.action = e.target.value; });
+    document.getElementById('audit-outcome').addEventListener('change', function (e) { A.outcome = e.target.value; });
+    document.getElementById('audit-employee').addEventListener('input', function (e) { A.employee = e.target.value; });
+  }
+
+  actions['audit.applyFilters'] = function () { return loadAudit(); };
+
+  // ---------------------------------------------------------------------
+  // Tokens
+  // ---------------------------------------------------------------------
+  function loadTokens() {
+    return api('/api/platform/tokens').then(function (data) {
+      state.tokens.list = data.tokens;
+      renderTokens();
+    });
+  }
+
+  function renderTokens() {
+    var el = document.getElementById('tab-tokens');
+    var rows = state.tokens.list.map(function (t) {
+      return '<tr>' +
+        '<td>' + esc(t.kind) + '</td>' +
+        '<td>' + esc(t.employee) + '</td>' +
+        '<td>' + esc(t.fleet || '') + '</td>' +
+        '<td>' + esc(t.label || '') + '</td>' +
+        '<td>' + esc(fmtDate(t.issued_at)) + '</td>' +
+        '<td>' + esc(fmtDate(t.expires_at)) + '</td>' +
+        '<td>' + badge(t.revoked ? 'revoked' : 'active') + '</td>' +
+        '<td><code>' + esc(t.token_hint) + '</code></td>' +
+      '</tr>';
+    }).join('');
+    var minted = state.tokens.minted;
+    var mintedBox = minted
+      ? '<div class="effect-box"><h4>Token minted</h4>' +
+        '<p class="hint">This value is shown once. It is a bearer credential: treat it like a password.</p>' +
+        '<div class="token-value-row"><code id="minted-token-value">' + esc(minted.token) + '</code>' +
+        '<button class="btn" data-action="tokens.copy">Copy</button></div>' +
+        '<p>Kind ' + esc(minted.kind) + ' for ' + esc(minted.employee) + (minted.fleet ? ' / ' + esc(minted.fleet) : '') + ', expires ' + esc(fmtDate(minted.expires_at)) + '.</p>' +
+        '</div>'
+      : '';
+
+    el.innerHTML =
+      '<div class="panel"><h3>Mint a token</h3>' +
+        '<div class="form-grid">' +
+          '<div><label for="mint-kind">Kind</label><select id="mint-kind"><option value="fleet">fleet</option><option value="platform">platform</option></select></div>' +
+          '<div><label for="mint-employee">Employee id</label><input id="mint-employee" type="text" placeholder="alice" /></div>' +
+          '<div><label for="mint-fleet">Fleet id (required for a fleet token)</label><input id="mint-fleet" type="text" placeholder="f_alice" /></div>' +
+          '<div><label for="mint-days">Days</label><input id="mint-days" type="number" value="30" /></div>' +
+          '<div><label for="mint-label">Label</label><input id="mint-label" type="text" placeholder="optional" /></div>' +
+        '</div>' +
+        '<div class="action-row" style="border-top:none;"><button class="btn btn-primary" data-action="tokens.mint">Mint token</button></div>' +
+        mintedBox +
+      '</div>' +
+      '<div class="panel"><h3>Issued tokens</h3><div class="table-wrap"><table><thead><tr><th>Kind</th><th>Employee</th><th>Fleet</th><th>Label</th><th>Issued</th><th>Expires</th><th>Status</th><th>Hint</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="8">No tokens issued.</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  actions['tokens.mint'] = function () {
+    var kind = document.getElementById('mint-kind').value;
+    var employee = document.getElementById('mint-employee').value.trim();
+    var fleet = document.getElementById('mint-fleet').value.trim() || undefined;
+    var days = Number(document.getElementById('mint-days').value) || 30;
+    var label = document.getElementById('mint-label').value.trim() || undefined;
+    return api('/api/platform/tokens', { method: 'POST', body: { kind: kind, employee: employee, fleet: fleet, days: days, label: label } }).then(function (res) {
+      state.tokens.minted = res;
+      return loadTokens();
+    });
+  };
+  actions['tokens.copy'] = function () {
+    var val = document.getElementById('minted-token-value').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(val).catch(function () {});
+    }
+  };
+
+  // ---------------------------------------------------------------------
+  // wiring and init
+  // ---------------------------------------------------------------------
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    var fn = actions[btn.dataset.action];
+    if (fn) fn(btn.dataset, btn);
+  });
+
+  document.getElementById('tabbar').addEventListener('click', function (e) {
+    var btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    setTab(btn.dataset.tab);
+  });
+
+  function resolveToken() {
+    var hash = location.hash;
+    if (hash.indexOf('#token=') === 0) {
+      var t = decodeURIComponent(hash.slice(7));
+      history.replaceState(null, '', location.pathname + location.search);
+      try { sessionStorage.setItem('ebp_token', t); } catch (e) {}
+      return t;
+    }
+    try { return sessionStorage.getItem('ebp_token'); } catch (e) { return null; }
+  }
+
+  function initAuth() {
+    var t = resolveToken();
+    if (t) { trySignIn(t); return; }
+    enterSignedOut('');
+  }
+
+  initTabsBar();
+  initAuth();
+})();
+</script>
+</body>
+</html>

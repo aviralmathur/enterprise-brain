@@ -15,9 +15,11 @@ export const DIRECTORY = {
 };
 
 let n = 0;
-export function world() {
+// `devTokens` is the only host option a check needs to vary: it decides whether
+// the local token list is served, and that is a rule worth proving both ways.
+export function world({ devTokens = false } = {}) {
   n += 1;
-  return build({ root: join('data', `case-${n}`), fresh: true, idp: structuredClone(DIRECTORY) });
+  return build({ root: join('data', `case-${n}`), fresh: true, idp: structuredClone(DIRECTORY), devTokens });
 }
 
 // Onboard an enterprise agent the way the platform team would: manifest + review.

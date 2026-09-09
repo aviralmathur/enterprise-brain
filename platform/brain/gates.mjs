@@ -7,6 +7,10 @@ export class QualityGates {
   // A check is (output) -> { pass, evidence }. Registered per output kind.
   register(kind, check) { this.checks.set(kind, check); }
 
+  // Which kinds have a gate at all. A kind that is absent here can only ever be
+  // `unverified`, and a board should say so rather than implying nobody looked.
+  registered() { return [...this.checks.keys()]; }
+
   run(outputId) {
     const o = this.ledger.get(outputId);
     if (!o) return { ok: false, reason: 'no such output' };

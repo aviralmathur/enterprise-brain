@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise Brain</title>
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#14181d; --line:#242b33; --ink:#e8edf2; --dim:#93a1b0; --faint:#5f6d7a;
+    --warm:#e8a13a; --cool:#5b9bd5; --ok:#4ea87b; --bad:#d4664a;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 24px 72px}
+  header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:32px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+  .sub{color:var(--dim);max-width:62ch;margin:0}
+  .kicker{font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 12px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:0 0 36px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column}
+  .card h2{font-size:17px;margin:0 0 4px}
+  .card .role{font:600 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;margin:0 0 12px}
+  .card.fleet{border-top:3px solid var(--warm)} .card.fleet .role{color:var(--warm)}
+  .card.plat{border-top:3px solid var(--cool)} .card.plat .role{color:var(--cool)}
+  .card p{color:var(--dim);margin:0 0 14px;font-size:14px}
+  dl{margin:0 0 16px;font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+  dt{color:var(--faint)} dd{margin:0;color:var(--dim)}
+  .who{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px}
+  a.btn,button.btn{display:inline-block;border:1px solid var(--line);background:#1b2027;color:var(--ink);
+    text-decoration:none;padding:8px 13px;border-radius:7px;font-size:13px;cursor:pointer;font-family:inherit}
+  a.btn:hover,button.btn:hover{border-color:var(--faint)}
+  a.btn.warm{border-color:#5a4520;background:#2a2013;color:#f0c078}
+  a.btn.cool{border-color:#25415c;background:#141f2b;color:#9cc8f0}
+  a.btn.warm:hover{border-color:var(--warm)} a.btn.cool:hover{border-color:var(--cool)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px;margin-top:8px}
+  section{margin-bottom:36px}
+  h3{font-size:14px;margin:0 0 10px;color:var(--ink)}
+  ul{margin:0;padding-left:18px;color:var(--dim);font-size:14px}
+  li{margin-bottom:7px}
+  code{font-family:var(--mono);font-size:12.5px;background:#1b2027;border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;color:#cfe0ee}
+  pre{font-family:var(--mono);font-size:12.5px;background:#0f1317;border:1px solid var(--line);
+    border-radius:8px;padding:14px;overflow-x:auto;color:#cfe0ee;margin:0}
+  .note{border-left:2px solid var(--faint);padding-left:14px;color:var(--dim);font-size:14px}
+  .warnbar{background:#221a10;border:1px solid #4a3a1e;color:#e8c48a;border-radius:8px;
+    padding:10px 14px;font-size:13px;margin-bottom:28px}
+  footer{border-top:1px solid var(--line);padding-top:18px;color:var(--faint);font-size:13px}
+  .tokrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;
+    padding:8px 0;border-bottom:1px solid var(--line)}
+  .tokrow:last-child{border-bottom:0}
+  .tag{font:600 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+    padding:4px 7px;border-radius:4px;border:1px solid var(--line);color:var(--dim)}
+  .tag.f{color:#f0c078;border-color:#5a4520} .tag.p{color:#9cc8f0;border-color:#25415c}
+  .muted{color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="kicker">Enterprise Brain</p>
+    <h1>Two Mission Controls, one governed ledger</h1>
+    <p class="sub">An employee runs a fleet of agents and keeps a private board. The platform team
+    governs the agents the enterprise itself runs and keeps a review queue. They share exactly one
+    ledger, and one interface between the boards: a request out, a decision back.</p>
+    <p class="sub" style="margin-top:12px">Everything in the seeded world is fictional. Alice, Bob,
+    Carol and Dave are placeholder identities and every figure is invented. No real person, system
+    of record or internal number appears anywhere in it.</p>
+  </header>
+
+  <div class="warnbar" id="devbar" hidden>
+    Local demo host. The token list below exists only because this process was started with
+    <code>--seed</code>. A real deployment never returns a bearer value from an endpoint.
+  </div>
+
+  <div class="cards">
+    <div class="card fleet">
+      <p class="role">Employee fleet</p>
+      <h2>Fleet Mission Control</h2>
+      <p>One operator, private. Instruct an agent, review what it proposes, approve. The approve
+      step is the publish action, and the employee is the accountable signer.</p>
+      <dl>
+        <dt>Thread</dt><dd>instruct, propose, approve, report</dd>
+        <dt>An item does</dt><dd>publishes an output to the ledger</dd>
+        <dt>Visible to</dt><dd>the owner only</dd>
+      </dl>
+      <div class="who" id="fleetwho"><a class="btn warm" href="/fleet">Open</a></div>
+    </div>
+    <div class="card plat">
+      <p class="role">Platform fleet</p>
+      <h2>Platform Mission Control</h2>
+      <p>A team, with assignment. Items are other people's requests. A decision here changes a
+      grant, an access list or a lifecycle, and every one is an audit record.</p>
+      <dl>
+        <dt>Thread</dt><dd>request, review, decide, notify</dd>
+        <dt>An item does</dt><dd>changes a grant, scope or lifecycle</dd>
+        <dt>Visible to</dt><dd>the platform team</dd>
+      </dl>
+      <div class="who" id="platwho"><a class="btn cool" href="/platform">Open</a></div>
+    </div>
+  </div>
+
+  <section>
+    <h3>Tokens on this host</h3>
+    <div id="tokens" class="muted">loading</div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h3>What the ledger enforces</h3>
+      <ul>
+        <li><strong>Scope is computed, never declared.</strong> A derived output's audience is the
+        intersection of its inputs' audiences, so restricted data cannot be widened by the agent
+        that derived it.</li>
+        <li><strong>Corrections cascade.</strong> Superseding or tombstoning an output marks
+        everything built on it stale, immediately.</li>
+        <li><strong>A harness source floors the scope</strong> at the producing fleet, because an
+        intersection over the employee's own mail would be unbounded rather than narrow.</li>
+        <li><strong>Status comes from a check that can fail</strong>, never from the producer's
+        claim. No gate for a kind means unverified, which is not the same as fine.</li>
+        <li><strong>Conflicts are surfaced, never resolved.</strong> Two live answers that disagree
+        are both returned with their provenance.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>What the host enforces</h3>
+      <ul>
+        <li><strong>Identity comes from the token.</strong> The employee and the fleet are read from
+        it; a body that names either is acting as itself.</li>
+        <li><strong>Only the agent id comes from the request</strong>, and it is checked against the
+        roster, or a fleet could borrow another agent's grant.</li>
+        <li><strong>The gateway is the only enforcement that counts.</strong> Every access decision
+        is re-evaluated on every call.</li>
+        <li><strong>Every vendor write terminates at a human.</strong> That is the break in the
+        chain from hostile content to a system of record.</li>
+        <li><strong>No entitlement is stored here.</strong> They resolve against the directory on
+        every call, so offboarding needs no cleanup job.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section>
+    <h3>Reach it without a browser</h3>
+    <pre id="curl">loading</pre>
+    <p class="note" style="margin-top:12px">The read path is <code>/api/fleet/ledger</code>, the only
+    write path up is <code>/api/fleet/gateway</code>, and the platform team's queue is
+    <code>/api/platform/queue</code>. A fleet token on a platform route is a 403, not a partial view.</p>
+  </section>
+
+  <footer>
+    <span id="health">checking host</span> &nbsp;·&nbsp;
+    <code>node server.mjs --seed</code> &nbsp;·&nbsp;
+    <code>node check/run.mjs</code>
+  </footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function row(t) {
+  const el = document.createElement('div');
+  el.className = 'tokrow';
+  const tag = document.createElement('span');
+  tag.className = 'tag ' + (t.kind === 'fleet' ? 'f' : 'p');
+  tag.textContent = t.kind;
+  const who = document.createElement('strong');
+  who.textContent = t.name || t.employee;
+  const meta = document.createElement('span');
+  meta.className = 'muted';
+  meta.textContent = t.fleet ? t.fleet : 'platform team';
+  const open = document.createElement('a');
+  open.className = 'btn ' + (t.kind === 'fleet' ? 'warm' : 'cool');
+  open.href = (t.kind === 'fleet' ? '/fleet' : '/platform') + '#token=' + t.token;
+  open.textContent = 'Open board';
+  const copy = document.createElement('button');
+  copy.className = 'btn';
+  copy.textContent = 'Copy token';
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(t.token); copy.textContent = 'Copied'; }
+    catch { copy.textContent = t.token.slice(0, 12) + '...'; }
+    setTimeout(() => { copy.textContent = 'Copy token'; }, 1600);
+  };
+  el.append(tag, who, meta, open, copy);
+  if (t.revoked) { const r = document.createElement('span'); r.className = 'tag'; r.textContent = 'revoked'; el.append(r); }
+  return el;
+}
+
+async function load() {
+  try {
+    const h = await (await fetch('/api/health')).json();
+    $('health').textContent = 'host up, ' + (h.seeded ? 'seeded' : 'using existing data');
+  } catch { $('health').textContent = 'host unreachable'; }
+
+  let tokens = [];
+  try {
+    const r = await fetch('/api/dev/tokens');
+    if (r.ok) { const d = await r.json(); tokens = (d.tokens || []).filter((t) => !t.revoked); }
+  } catch { /* not enabled */ }
+
+  const box = $('tokens');
+  box.textContent = '';
+  if (!tokens.length) {
+    box.textContent = 'No demo tokens on this host. Start it with --seed, or paste a token on either board.';
+  } else {
+    $('devbar').hidden = false;
+    for (const t of tokens) box.appendChild(row(t));
+    const f = tokens.find((t) => t.kind === 'fleet');
+    const p = tokens.find((t) => t.kind === 'platform');
+    const base = location.origin;
+    $('curl').textContent =
+      '# what does the enterprise know about the grand total, as this employee\n' +
+      'curl -s "' + base + '/api/fleet/ledger/ask?agent=analyst&kind=metric&subject=q3_revenue" \\\n' +
+      '  -H "authorization: Bearer ' + (f ? f.token : '$FLEET_TOKEN') + '"\n\n' +
+      '# refused: no live grant for this agent on that enterprise agent\n' +
+      'curl -s -X POST "' + base + '/api/fleet/gateway/invoke" \\\n' +
+      '  -H "authorization: Bearer ' + (f ? f.token : '$FLEET_TOKEN') + '" -H "content-type: application/json" \\\n' +
+      '  -d \'{"agent":"builder","target":"incident-desk","op":"incident.summary"}\'\n\n' +
+      '# the platform team\'s review queue\n' +
+      'curl -s "' + base + '/api/platform/queue?state=open" \\\n' +
+      '  -H "authorization: Bearer ' + (p ? p.token : '$PLATFORM_TOKEN') + '"';
+    if (f) {
+      const a = document.createElement('a');
+      a.className = 'btn warm'; a.href = '/fleet#token=' + f.token; a.textContent = 'Open as ' + (f.name || f.employee);
+      $('fleetwho').textContent = ''; $('fleetwho').appendChild(a);
+    }
+    if (p) {
+      const a = document.createElement('a');
+      a.className = 'btn cool'; a.href = '/platform#token=' + p.token; a.textContent = 'Open as the platform team';
+      $('platwho').textContent = ''; $('platwho').appendChild(a);
+    }
+  }
+}
+load();
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 // The enterprise agent registry. Owned by the platform team (D1).
 // Enforces the scoping standard (D6) at onboarding, which is where vendor
 // entitlement questions are settled once rather than per request (D5).
-import { readDoc, writeDoc } from '../brain/store.mjs';
+import { readDoc, writeDoc, appendLine, readLines } from '../brain/store.mjs';
 
 export const AUTH_MODES = ['delegated', 'service_account'];
 
@@ -47,17 +47,45 @@ export function scopeReview(m) {
 }
 
 export class Registry {
-  constructor(path) { this.path = path; }
+  constructor(path) {
+    this.path = path;
+    // Every onboarding attempt, published or refused. A blocked manifest that
+    // leaves no trace is a standard nobody can audit.
+    this.reviewLog = path.replace(/\.json$/, '.reviews.jsonl');
+  }
+
+  reviews() { return readLines(this.reviewLog); }
 
   load() { return readDoc(this.path, { agents: {} }); }
   save(db) { writeDoc(this.path, db); }
 
   publish(manifest, { reviewed_by, review }) {
     const errs = validateManifest(manifest);
-    if (errs.length) return { ok: false, errors: errs };
-    if (!reviewed_by) return { ok: false, errors: ['a manifest may only be published with a recorded reviewer'] };
+    // Every attempt is logged, refused ones included. A blocked manifest that
+    // leaves no trace is a standard nobody can audit afterwards.
+    const attempt = {
+      at: new Date().toISOString(),
+      agent: manifest?.id ?? null,
+      reviewed_by: reviewed_by ?? null,
+      findings: review?.findings ?? [],
+      manifest_scope: manifest?.scope ?? null,
+    };
+
+    if (errs.length) {
+      appendLine(this.reviewLog, { ...attempt, outcome: 'invalid', errors: errs });
+      return { ok: false, errors: errs, review };
+    }
+    if (!reviewed_by) {
+      appendLine(this.reviewLog, { ...attempt, outcome: 'refused', errors: ['no recorded reviewer'] });
+      return { ok: false, errors: ['a manifest may only be published with a recorded reviewer'], review };
+    }
     if (review?.blocking) {
-      return { ok: false, errors: ['scope review is blocking', ...review.findings.map((f) => f.finding)] };
+      appendLine(this.reviewLog, { ...attempt, outcome: 'blocked' });
+      return {
+        ok: false,
+        errors: ['scope review is blocking', ...review.findings.filter((f) => f.severity === 'blocking').map((f) => f.finding)],
+        review,
+      };
     }
 
     const db = this.load();
@@ -71,7 +99,38 @@ export class Registry {
       published_at: new Date().toISOString(),
     };
     this.save(db);
-    return { ok: true, agent: db.agents[manifest.id] };
+    appendLine(this.reviewLog, { ...attempt, outcome: 'published', version: db.agents[manifest.id].version });
+    return { ok: true, agent: db.agents[manifest.id], review };
+  }
+
+  // Granting access to a list-scoped agent widens both its access list and the
+  // scope of everything it publishes from here on. Outputs already on the ledger
+  // keep the scope they were computed with.
+  addToAccessList(id, employee, by) {
+    const db = this.load();
+    const a = db.agents[id];
+    if (!a) return { ok: false, errors: ['no such agent'] };
+    if (a.scope.type === 'org') return { ok: true, agent: a, note: 'already org-wide' };
+    if (a.scope.members.includes(employee)) return { ok: true, agent: a, note: 'already on the list' };
+
+    a.scope.members = [...a.scope.members, employee].sort();
+    a.version += 1;
+    a.access_changed_at = new Date().toISOString();
+    a.access_changed_by = by ?? null;
+    this.save(db);
+    appendLine(this.reviewLog, {
+      at: new Date().toISOString(),
+      agent: id,
+      reviewed_by: by ?? null,
+      outcome: 'access_widened',
+      findings: [{
+        severity: 'advisory',
+        finding: `${employee} added to the access list; future outputs of ${id} will include them in scope`,
+        remedy: 'outputs already published keep the scope they were computed with',
+      }],
+      manifest_scope: a.scope,
+    });
+    return { ok: true, agent: a };
   }
 
   get(id) { return this.load().agents[id] ?? null; }
@@ -111,11 +170,11 @@ export class Registry {
 
   // Retiring an agent must mark its outputs stale - which is why the registry
   // ships after the ledger, not before.
-  retire(id, ledger) {
+  retire(id, ledger, reason = null) {
     const res = this.setLifecycle(id, 'retired');
     if (!res.ok) return res;
     const affected = ledger.all().filter((o) => o.producer.agent === id && o.state === 'live');
-    for (const o of affected) ledger.tombstone(o.id, `producing agent ${id} was retired`);
+    for (const o of affected) ledger.tombstone(o.id, reason ?? `producing agent ${id} was retired`);
     return { ok: true, retired: id, outputs_marked: affected.map((o) => o.id) };
   }
 }

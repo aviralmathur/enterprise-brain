@@ -5,22 +5,35 @@ import { readDoc, writeDoc } from '../brain/store.mjs';
 export const subjectKey = (s) =>
   s.type === 'employee' ? `employee:${s.id}` : `fleet_agent:${s.fleet}/${s.agent}`;
 
+// How a grant reads to a person. A grant on one named agent does nothing for
+// another agent in the same fleet, so the label has to say which.
+export const subjectLabel = (s) =>
+  s.type === 'employee' ? `${s.id} (any agent)` : `${s.fleet}/${s.agent}`;
+
+const DAY = 24 * 3600 * 1000;
+
 export class Grants {
   constructor(path, audit) { this.path = path; this.audit = audit; }
 
   load() { return readDoc(this.path, { grants: {} }); }
   save(db) { writeDoc(this.path, db); }
 
-  issue({ subject, agent, expires_at, approved_by, request_id = null }) {
+  // Time-boxed always. `days` is the form a reviewer actually thinks in, and
+  // `expires_at` the form a caller with an exact expiry passes; one of the two
+  // is required, because a grant that never expires outlives the reason it was
+  // issued.
+  issue({ subject, agent, expires_at = null, days = null, approved_by, request_id = null, justification = null }) {
     if (!subject || !agent) return { ok: false, errors: ['subject and agent are required'] };
     if (!approved_by) return { ok: false, errors: ['a grant needs a recorded approver'] };
-    if (!expires_at) return { ok: false, errors: ['a grant must be time-boxed'] };
-    if (Date.parse(expires_at) <= Date.now()) return { ok: false, errors: ['expires_at is already in the past'] };
+    const expiry = expires_at ?? (days ? new Date(Date.now() + days * DAY).toISOString() : null);
+    if (!expiry) return { ok: false, errors: ['a grant must be time-boxed'] };
+    if (Date.parse(expiry) <= Date.now()) return { ok: false, errors: ['the expiry is already in the past'] };
 
     const db = this.load();
     const id = `grant_${subjectKey(subject).replace(/[^a-z0-9]/gi, '_')}_${agent}`;
     db.grants[id] = {
-      id, subject, agent, expires_at, approved_by, request_id,
+      id, subject, subject_label: subjectLabel(subject), agent,
+      expires_at: expiry, approved_by, request_id, justification,
       issued_at: new Date().toISOString(), revoked: false,
     };
     this.save(db);
@@ -28,7 +41,7 @@ export class Grants {
       action: 'grant',
       employee: subject.type === 'employee' ? subject.id : null,
       target: agent, outcome: 'allowed',
-      detail: { grant: id, subject: subjectKey(subject), approved_by, expires_at },
+      detail: { grant: id, subject: subjectKey(subject), approved_by, expires_at: expiry },
     });
     return { ok: true, grant: db.grants[id] };
   }
@@ -61,5 +74,19 @@ export class Grants {
     return hit ?? null;
   }
 
-  all() { return Object.values(this.load().grants); }
+  // `live` and `expires_in_days` are derived on read, never stored: a grant
+  // that expired a minute ago must not look live because nothing has run since.
+  all() {
+    const now = Date.now();
+    return Object.values(this.load().grants).map((g) => ({
+      ...g,
+      subject_label: g.subject_label ?? subjectLabel(g.subject),
+      live: !g.revoked && Date.parse(g.expires_at) > now,
+      expires_in_days: Math.round(((Date.parse(g.expires_at) - now) / DAY) * 10) / 10,
+    }));
+  }
+
+  forFleet(fleet) {
+    return this.all().filter((g) => g.subject.type === 'fleet_agent' && g.subject.fleet === fleet);
+  }
 }

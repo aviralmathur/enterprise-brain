@@ -30,6 +30,40 @@ export class Gateway {
     return Array.isArray(list) && list.includes(employeeId);
   }
 
+  // What a fleet may see about an enterprise agent before it calls one. Consume
+  // and invoke are reported separately because they are governed separately: an
+  // access list opens the first, a live grant opens the second.
+  catalogFor(employee, via) {
+    return this.registry
+      .all()
+      .filter((a) => a.lifecycle !== 'retired')
+      .map((a) => {
+        const list = this.registry.accessList(a.id);
+        const onList = list === 'org' || (Array.isArray(list) && list.includes(employee));
+        const grant = via ? this.grants.find({ employee, via, agent: a.id }) : null;
+        const system = a.connectors?.[0]?.system;
+        const connector = this.connectors[system];
+        return {
+          id: a.id,
+          dri: a.dri,
+          produces: a.produces,
+          cadence: a.cadence,
+          connectors: (a.connectors ?? []).map((c) => `${c.system} (${c.auth_mode})`),
+          invocable: Boolean(a.invocable),
+          employee_reachable: a.employee_reachable !== false,
+          on_access_list: onList,
+          consume: onList ? 'open' : 'needs access',
+          invoke: !a.invocable
+            ? 'not invocable'
+            : grant
+              ? `granted until ${grant.expires_at.slice(0, 10)}`
+              : 'needs a grant',
+          rate_limit: a.rate_limit?.per_minute ?? null,
+          ops: { reads: connector?.reads ?? [], writes: connector?.writes ?? [] },
+        };
+      });
+  }
+
   withinRate(agentId) {
     const limit = this.registry.rateLimit(agentId);
     if (!limit) return false;

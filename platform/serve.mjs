@@ -1,16 +1,17 @@
-// Start the host, so a fleet's harness has something to connect to.
+// Start the host: the two Mission Controls, the API behind them, and the three
+// endpoints a connection descriptor names.
 //
-//   node serve.mjs --seed            fresh world, agents onboarded, token printed
+//   node serve.mjs --seed            fresh world, both boards, tokens printed
 //   node serve.mjs                   serve whatever is already in the workspace
-//   node serve.mjs --port 9000 --root ~/.enterprise-brain/platform
+//   node serve.mjs --port 9000 --root data/other
 //
-// This is the reference host: node:http, no dependencies, one process, file-backed.
-// It is the piece a platform team replaces with the same routes on infrastructure
-// they already run — the routes and the checks are what matter, not this process.
+// This is the reference host: node:http, no dependencies, one process,
+// file-backed. It is the piece a platform team replaces with the same routes on
+// infrastructure they already run. The routes and the checks are what matter,
+// not this process.
 import { buildPlatform } from './wire.mjs';
 import { platformWorkspace } from './workspace.mjs';
-import { scopeReview } from './platform-fleet/registry.mjs';
-import { newOutput } from './brain/schema.mjs';
+import { seedWorld, DIRECTORY } from './seed.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -20,102 +21,60 @@ const flag = (name, fallback = null) => {
 const has = (name) => args.includes(`--${name}`);
 
 const port = Number(flag('port', 8080));
+const host = flag('host', '127.0.0.1');
 const root = flag('root', 'data/serve');
 const seed = has('seed');
+// The landing page can hand out local tokens only when the host was started for
+// a local demo. Off by default, loopback only, and never for a real deployment.
+const devTokens = seed || has('dev-tokens');
 
 const platform = buildPlatform({
-  ws: platformWorkspace(root),
+  ws: platformWorkspace(`${root}/platform`),
+  workspaceRoot: `${root}/workspaces`,
   fresh: seed,
-  idp: seed
-    ? {
-      employees: {
-        sarah: { status: 'active', entitlements: ['finance.read', 'incidents.read'] },
-        raj: { status: 'active', entitlements: ['incidents.read'] },
-        priya: { status: 'active', entitlements: ['platform.admin'] },
-      },
-    }
-    : null,
+  idp: seed ? DIRECTORY : null,
+  devTokens,
 });
 
-let issued = null;
+let seeded = null;
+if (seed) seeded = await seedWorld(platform, { baseUrl: `http://${host}:${port}` });
 
-if (seed) {
-  for (const m of [
-    {
-      id: 'incident-desk', dri: 'priya', produces: ['incident_summary'], cadence: 'hourly',
-      connectors: [{ system: 'servicenow', auth_mode: 'service_account' }],
-      scope: { type: 'list', members: ['sarah', 'raj'] },
-      invocable: true, rate_limit: { per_minute: 30 },
-      quality_gate: 'incident_summary.check', deprecation_policy: '90d unused',
-    },
-    {
-      id: 'revenue-desk', dri: 'priya', produces: ['metric'], cadence: 'daily',
-      connectors: [], scope: { type: 'list', members: ['sarah'] },
-      invocable: false, quality_gate: 'metric.nonnegative', deprecation_policy: '90d unused',
-    },
-  ]) {
-    platform.registry.publish(m, { reviewed_by: 'priya', review: scopeReview(m) });
-  }
-
-  platform.ledger.publish(newOutput({
-    id: 'inc_week', kind: 'incident_summary',
-    producer: { fleet: 'enterprise', agent: 'incident-desk', identity: 'priya' },
-    body: { subject: 'payments-api', value: { open: 7, p1: 1 } },
-    sources: [{ system: 'servicenow', ref: 'INC-QUERY' }], status: 'verified', ttl_seconds: 86400,
-  }));
-  platform.ledger.publish(newOutput({
-    id: 'rev_q4', kind: 'metric',
-    producer: { fleet: 'enterprise', agent: 'revenue-desk', identity: 'priya' },
-    body: { subject: 'q4', value: 4_180_000 },
-    sources: [{ system: 'warehouse', ref: 'fct_revenue' }], status: 'verified',
-  }));
-
-  platform.fleetRoster.register({
-    fleet: 'f_sarah', owner: 'sarah',
-    agents: [{ id: 'analyst', purpose: 'weekly ops read' }],
-  });
-
-  issued = platform.tokens.issue({
-    employee: 'sarah', fleet: 'f_sarah',
-    expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
-  });
-}
-
-const { url } = await platform.host.listen(port, '127.0.0.1');
+const { url } = await platform.host.listen(port, host);
 
 console.log('');
-console.log(`Enterprise Brain host listening on ${url}`);
-console.log(`  workspace   ${platform.paths.root}`);
-console.log(`  agents      ${platform.registry.all().map((a) => a.id).join(', ') || '(none onboarded)'}`);
-console.log(`  outputs     ${platform.ledger.all().length}`);
+console.log(`Enterprise Brain  ${url}`);
+console.log(`  workspace        ${platform.paths.root}`);
+console.log(`  agents           ${platform.registry.all().map((a) => a.id).join(', ') || '(none onboarded)'}`);
+console.log(`  outputs          ${platform.ledger.all().length}`);
+console.log(`  fleets           ${platform.fleetRoster.all().map((f) => f.fleet).join(', ') || '(none)'}`);
 console.log('');
-console.log('Endpoints for a connection descriptor:');
-console.log(`  ledger          ${url}/ledger`);
-console.log(`  gateway         ${url}/gateway`);
-console.log(`  platform_board  ${url}/board`);
+console.log('Mission Control');
+console.log(`  employee fleet   ${url}/fleet`);
+console.log(`  platform fleet   ${url}/platform`);
+console.log(`  landing          ${url}/`);
+console.log('');
+console.log('Endpoints a connection descriptor names');
+console.log(`  ledger           ${url}/ledger`);
+console.log(`  gateway          ${url}/gateway`);
+console.log(`  platform_board   ${url}/board`);
 console.log('');
 
-if (issued) {
-  console.log(`Fleet token for ${issued.employee} / ${issued.fleet}:`);
-  console.log(`  ${issued.token}`);
+if (seeded) {
+  console.log(`Seeded: ${JSON.stringify(seeded.counts)}`);
   console.log('');
-  console.log('Try it — identity comes from the token, so no employee id is ever sent:');
+  console.log('Tokens (local demo only):');
+  for (const [who, token] of Object.entries(seeded.tokens)) {
+    console.log(`  ${who.padEnd(10)}${token}`);
+  }
+  console.log('');
+  console.log('Open a board already signed in:');
+  console.log(`  ${url}/fleet#token=${seeded.tokens.alice}`);
+  console.log(`  ${url}/platform#token=${seeded.tokens.platform}`);
+  console.log('');
+  console.log('Or reach it without a browser, identity from the token:');
   console.log('');
   console.log(`  curl -s "${url}/ledger/ask?agent=analyst" \\`);
-  console.log(`    -H "authorization: Bearer ${issued.token}"`);
-  console.log('');
-  console.log(`  curl -s "${url}/ledger/outputs/rev_q4?agent=analyst" \\`);
-  console.log(`    -H "authorization: Bearer ${issued.token}"`);
-  console.log('');
-  console.log('  # refused: no grant for this agent on incident-desk');
-  console.log(`  curl -s -X POST "${url}/gateway/invoke" \\`);
-  console.log(`    -H "authorization: Bearer ${issued.token}" -H "content-type: application/json" \\`);
-  console.log(`    -d '{"via":{"agent":"analyst"},"target":"incident-desk","op":"incident.summary"}'`);
-  console.log('');
-  console.log('  # raise a grant request onto the platform team\'s board');
-  console.log(`  curl -s -X POST "${url}/board/items" \\`);
-  console.log(`    -H "authorization: Bearer ${issued.token}" -H "content-type: application/json" \\`);
-  console.log(`    -d '{"type":"grant_request","subject":"f_sarah/analyst -> incident-desk"}'`);
+  console.log(`    -H "authorization: Bearer ${seeded.tokens.alice}"`);
   console.log('');
 }
 

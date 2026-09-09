@@ -33,7 +33,7 @@ import { DirectPlatformLink, UrlPlatformLink } from './employee-fleet/platform-l
 
 import { platformWorkspace, employeeWorkspace } from './workspace.mjs';
 
-export function buildPlatform({ ws, fresh = false, idp = null } = {}) {
+export function buildPlatform({ ws, fresh = false, idp = null, workspaceRoot = null, devTokens = false } = {}) {
   const paths = ws ?? platformWorkspace();
   if (fresh && existsSync(paths.root)) rmSync(paths.root, { recursive: true, force: true });
 
@@ -81,10 +81,25 @@ export function buildPlatform({ ws, fresh = false, idp = null } = {}) {
     grants, gateway, board, telemetry, gates, connectors, boardHandler, tokens,
   };
 
-  // The host serves the three endpoints a connection descriptor names. Built here
-  // but not listening - call host.listen(port) to serve, or host.handle(req) to
-  // exercise every route without a socket.
-  platform.host = createHost({ platform, tokens });
+  // One employee's own side of the world, on demand and cached. The host needs
+  // this to answer a fleet's own routes, and it is the only reason the platform
+  // side knows an employee workspace root at all: it hands out a fleet's
+  // interfaces, never its storage.
+  const fleetCache = new Map();
+  platform.workspaceRoot = workspaceRoot;
+  platform.fleetFor = (employee, fleetId) => {
+    const key = employee + '|' + fleetId;
+    if (!fleetCache.has(key)) {
+      fleetCache.set(key, buildFleet({ platform, employee, fleet: fleetId, workspaceRoot }));
+    }
+    return fleetCache.get(key);
+  };
+
+  // The host serves the three endpoints a connection descriptor names, plus the
+  // two boards and the API behind them. Built here but not listening - call
+  // host.listen(port) to serve, or host.handle(req) to exercise every route
+  // without a socket.
+  platform.host = createHost({ platform, tokens, devTokens });
   return platform;
 }
 
@@ -126,16 +141,30 @@ export function buildFleet({ platform, employee, fleet, ws, workspaceRoot, link 
 }
 
 // Single-machine composition used by the demo and the acceptance suite.
-export function build({ root = 'data', fresh = false, idp = null } = {}) {
-  const platform = buildPlatform({ ws: platformWorkspace(`${root}/platform`), fresh, idp });
+export function build({ root = 'data', fresh = false, idp = null, devTokens = false } = {}) {
+  // `fresh` has to clear the WHOLE root, not just the platform side. Clearing
+  // only the platform workspace leaves every employee's board behind, and the
+  // next run reads work that a previous one wrote: a check that passes on a
+  // clean machine and drifts on a used one.
+  if (fresh && existsSync(root)) rmSync(root, { recursive: true, force: true });
+
+  const platform = buildPlatform({
+    ws: platformWorkspace(`${root}/platform`),
+    idp,
+    workspaceRoot: `${root}/workspaces`,
+    devTokens,
+  });
   return {
     ...platform,
     // Readability at call sites; the roster lives on the platform side.
     fleets: platform.fleetRoster,
     workspaceRoot: `${root}/workspaces`,
+    // Deliberately NOT passing `fresh` down: the root was already cleared
+    // above, and a factory that wipes on every call would destroy an
+    // employee's board the second time anybody asked for their fleet.
     fleet: (employee, fleetId, opts = {}) => buildFleet({
       platform, employee, fleet: fleetId,
-      workspaceRoot: `${root}/workspaces`, fresh, ...opts,
+      workspaceRoot: `${root}/workspaces`, ...opts,
     }),
   };
 }

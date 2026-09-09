@@ -33,6 +33,41 @@ export class Telemetry {
   }
 
   // An agent nobody has used is a maintenance liability and a standing access list.
+  // Usage per registered agent. A consume names an OUTPUT, not an agent, so the
+  // producer is resolved through the ledger: without that, an agent whose
+  // figures are quoted daily reads as unused.
+  usage(windowDays = 30) {
+    const cutoff = Date.now() - windowDays * 86_400_000;
+    const rows = this.audit.all().filter((r) => Date.parse(r.at) > cutoff);
+    const producerOf = new Map(
+      (this.ledger ? this.ledger.all() : []).map((o) => [o.id, o.producer.agent]),
+    );
+
+    const per = {};
+    for (const a of this.registry.all()) {
+      per[a.id] = { agent: a.id, consumes: 0, invokes: 0, refusals: 0, outputs: 0, employees: new Set() };
+    }
+    for (const r of rows) {
+      const hit = Object.keys(per).find(
+        (id) => r.target === id || (r.detail && r.detail.agent === id) || producerOf.get(r.target) === id,
+      );
+      if (!hit) continue;
+      if (r.action === 'consume') per[hit].consumes += 1;
+      if (r.action === 'invoke') per[hit].invokes += 1;
+      if (r.outcome === 'refused') per[hit].refusals += 1;
+      if (r.employee) per[hit].employees.add(r.employee);
+    }
+    for (const o of this.ledger ? this.ledger.all() : []) {
+      if (per[o.producer.agent]) per[o.producer.agent].outputs += 1;
+    }
+    return Object.values(per).map((p) => ({
+      ...p,
+      distinct_employees: p.employees.size,
+      employees: undefined,
+      total: p.consumes + p.invokes,
+    }));
+  }
+
   deprecationCandidates(opts) {
     const usage = this.agentUsage(opts);
     return this.registry

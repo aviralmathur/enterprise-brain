@@ -1,9 +1,11 @@
 // The IAM seam. D14/kill-risk-2: the brain stores NO entitlements — it resolves
 // them on every call through this provider. Swapping the local provider for a
 // real IdP is a config change, not a rewrite.
-import { readDoc } from './store.mjs';
+import { readDoc, writeDoc } from './store.mjs';
 
 // A provider must implement: resolve(employeeId) -> { id, status, entitlements: [] }
+// Anything else it returns is display only: a board needs a name to show, and a
+// name is not an entitlement.
 export function createLocalProvider(path) {
   return {
     name: 'local-directory',
@@ -12,7 +14,29 @@ export function createLocalProvider(path) {
       const dir = readDoc(path, { employees: {} });
       const rec = dir.employees[employeeId];
       if (!rec) return { id: employeeId, status: 'unknown', entitlements: [] };
-      return { id: employeeId, status: rec.status ?? 'active', entitlements: rec.entitlements ?? [] };
+      return {
+        id: employeeId,
+        name: rec.name ?? employeeId,
+        title: rec.title ?? null,
+        role: rec.role ?? 'employee',
+        status: rec.status ?? 'active',
+        entitlements: rec.entitlements ?? [],
+      };
+    },
+
+    all() {
+      const dir = readDoc(path, { employees: {} });
+      return Object.keys(dir.employees).map((id) => this.resolve(id));
+    },
+
+    // The local stand-in for an HR system marking a leaver. A real deployment
+    // does this in the IdP and the brain simply stops resolving them as active.
+    setStatus(employeeId, status) {
+      const dir = readDoc(path, { employees: {} });
+      if (!dir.employees[employeeId]) return { ok: false, errors: ['no such employee'] };
+      dir.employees[employeeId].status = status;
+      writeDoc(path, dir);
+      return { ok: true, employee: this.resolve(employeeId) };
     },
   };
 }

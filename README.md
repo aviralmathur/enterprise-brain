@@ -12,11 +12,18 @@ that kit teaches how *one* agent behaves; this one builds the *org* those agents
 
 > **Two things live in this repo now.** The skills below are the *personal* control
 > plane — one principal, one fleet, on one machine. [`platform/`](platform/) is the
-> *enterprise* build: many employee fleets, a platform-owned enterprise fleet, and a
-> shared output ledger between them. They share a name and an idea; they are separate
-> codebases with separate audiences. Start with the skills if you run your own fleet;
-> start with [`platform/README.md`](platform/README.md) if you are standing this up for
-> an organisation.
+> *enterprise* build: many employee fleets, a platform-owned enterprise fleet, a
+> shared output ledger between them, and a Mission Control for each side that you
+> can actually open:
+>
+> ```bash
+> cd platform && node serve.mjs --seed   # then open /fleet and /platform
+> ```
+>
+> They share a name and an idea; they are separate codebases with separate
+> audiences. Start with the skills if you run your own fleet; start with
+> [`platform/README.md`](platform/README.md) if you are standing this up for an
+> organisation.
 
 ## What's in here
 

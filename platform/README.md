@@ -9,10 +9,21 @@ proved by a runnable check. Three things are seams rather than integrations, and
 are marked as such below.
 
 ```bash
-node serve.mjs --seed   # start the host, seeded, with a fleet token printed
-node demo.mjs           # narrated end-to-end walkthrough, 14 steps
+node serve.mjs --seed   # the two boards, seeded, with tokens printed
+node demo.mjs           # narrated end-to-end walkthrough
 node acceptance/run.mjs # the roadmap's exit tests as runnable checks
 ```
+
+Then open either board. `--seed` prints a link that signs you in:
+
+| Surface | URL | Operator |
+|---|---|---|
+| Landing | `/` | picks a board, and lists the local tokens |
+| Fleet Mission Control | `/fleet` | one employee, private |
+| Platform Mission Control | `/platform` | the platform team |
+
+No build step and no dependency install. The pages are three static files and the
+token travels in the URL fragment, which never reaches the server.
 
 No dependencies. Node 18+. All state is plain text under `data/` — `cat
 data/demo/ledger.jsonl` is a feature, not a debugging affordance.
@@ -119,7 +130,7 @@ platform-fleet/         owned and governed by the platform team (D1)
   gateway.mjs           the only enforcement that counts (D13)
   board.mjs             thin review queue (D19); same thread grammar
   handler.mjs           mountable board handler — two routes, no enumeration
-  host.mjs              serves /ledger, /gateway, /board; identity from the token
+  host.mjs              serves the boards, the API and /ledger /gateway /board
   tokens.mjs            ── SEAM: token -> { employee, fleet }
   connectors/           ── SEAM: ServiceNow / Agentforce / Copilot adapters
 
@@ -129,10 +140,19 @@ employee-fleet/         self-serve, free to create (D2)
   enforce.mjs           advisory local check — worthless against intent
   board.mjs             private cockpit; a verdict authorises, and publishes an output
 
+api/                    what the two boards are built on
+  fleet.mjs             what a fleet can do, and nothing else
+  platform.mjs          what the platform team can do. No route reads a fleet board.
+
+ui/                     the boards themselves. Three files, no build step.
+  index.html            landing: both boards, the local tokens, curl examples
+  fleet.html            Fleet Mission Control - the private cockpit
+  platform.html         Platform Mission Control - the review desk
+
 kit/skills/             what an employee installs — six skills, one file each
 spec/contracts.md       the Phase 0 contracts
 workspace.mjs           storage ownership: platform vs employee
-acceptance/run.mjs      60 checks, one per exit test or decision
+acceptance/run.mjs      66 checks, one per exit test or decision
 wire.mjs                buildPlatform() and buildFleet()
 serve.mjs               start the host
 ```
@@ -197,6 +217,19 @@ ever deleted.
 A field change is itself a thread entry, written by the board and never by hand,
 so an item can always say how it got here.
 
+### Opening them
+
+Both boards are single files of vanilla JavaScript over the same API a harness
+would use. There is no privileged path: everything a board can do, a `curl` can
+do with the same token, which is what makes the API and not the page the thing
+under test.
+
+A page is served without a token, because a page is not data. It shows nothing
+until one is supplied, and the token arrives in the URL fragment so it never
+reaches this process. The landing page can hand out local bearer values, but only
+when the host was started with `--seed` or `--dev-tokens`, and only on the
+loopback interface. A check proves it is off otherwise.
+
 ### A verdict authorises; it does not execute
 
 Approving a **plan** records approved intent and runs nothing — the agent carries
@@ -217,7 +250,7 @@ fields are still absent, so the deferral stays honest.
 
 ## What the acceptance suite proves
 
-60 checks, grouped by the phase whose exit test they are.
+66 checks, grouped by the phase whose exit test they are.
 
 | Phase | Proves |
 |---|---|
@@ -229,6 +262,7 @@ fields are still absent, so the deferral stays honest.
 | 6 | status comes from a check that can fail; telemetry surfaces unused agents; conflicting answers are surfaced, never resolved |
 | Mission Control | an item carries a lane, a kind and a work status; a lane must be a registered agent; a proposal without concrete actions is refused; **a verdict on a plan publishes nothing, a verdict on a candidate publishes exactly one output**; a proposal cannot be decided twice; a field change is an entry and cannot be forged; park and archive are both lossless; every write bumps a revision; what waits on me and what waits on an agent are two different queues; both boards speak the same thread grammar |
 | Workspaces | employee and platform storage are separate trees; two employees never share a file; tool selection sorts harness from enterprise; the descriptor names all three endpoints; the URL link behaves identically to the direct one; **the URL route cannot be walked to read someone else's request** |
+| Boards | both boards and the landing page are served as pages; a page needs no token and bakes none in; **the two API surfaces refuse each other's tokens**; the API needs a live token exactly as the endpoints do; a board's items carry a lane and a work status and its two queues stay separate; the local token list is off by default and never answers off the loopback interface |
 | Host | health is open and everything else needs a live token; **a body-supplied employee id is ignored and a body-supplied fleet id cannot be borrowed**; an unregistered agent is refused first; publishing over the wire still computes scope and forces the signer; an approval cannot name another approver; revocation and offboarding are immediate; an archived fleet cannot act; a 500 leaks nothing |
 
 A phase that cannot pass its check has not shipped, whatever the code says.
@@ -245,9 +279,10 @@ Honest list, in the order they would bite.
    separate files, which is the right shape, but nothing stops a process with
    filesystem access from reading another workspace. Real isolation is per-tenant
    storage with its own credentials.
-5. **No human UI.** Both boards are libraries over JSON files reached through the
-   host. Nobody can *open* either one — a person interacting with the brain still
-   needs a surface built. This is the largest remaining gap.
+5. **The boards are single-file pages with no tests of their own.** They are
+   thin clients over an API that is checked thoroughly, and every action they
+   take is reachable with `curl`, but nothing exercises the rendering itself. A
+   broken page would not fail the suite.
 6. **The host is HTTP on localhost with no TLS, CORS, or request limits.** Fine
    behind a reverse proxy that terminates TLS and rate-limits by IP; not fine
    exposed directly.
