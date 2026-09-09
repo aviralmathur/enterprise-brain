@@ -6,6 +6,7 @@ import { readLines, readDoc } from '../brain/store.mjs';
 import { newOutput } from '../brain/schema.mjs';
 import { assertNoStoredEntitlements } from '../brain/identity.mjs';
 import { describe } from '../brain/scope.mjs';
+import { ENTRY_KINDS } from '../brain/board.mjs';
 import {
   world, onboard, manifest, enterpriseOutput,
   phase, check, assert, assertEqual, report,
@@ -252,10 +253,21 @@ await check('the platform board is thin: items, assignee, decision, audit record
   assert(dec.ok, 'decide');
 
   const item = w.board.get(sub.item.id);
-  assertEqual(Object.keys(item).sort(), [
-    'assignee', 'decided_at', 'decided_by', 'decision', 'id', 'note',
-    'payload', 'requester', 'state', 'subject', 'submitted_at', 'type',
-  ], 'no SLA or standing-review fields yet — those are Phase 6');
+  // Assert the DEFERRAL, not an exact field list. A whitelist breaks on every
+  // legitimate change to the item and stops saying anything about Phase 6.
+  const deferred = [
+    'sla', 'sla_due', 'breached', 'escalated_to', 'escalation',
+    'recurring', 'review_cadence', 'next_review_at',
+    'conflict', 'conflicts_with', 'adjudication', 'adjudicated_by',
+    'priority', 'severity',
+  ];
+  const present = deferred.filter((f) => f in item);
+  assertEqual(present, [], 'no SLA, recurring-review or adjudication fields yet — those are Phase 6');
+
+  // What it must have to be a queue at all.
+  for (const f of ['id', 'type', 'requester', 'state', 'assignee', 'decision', 'decided_by', 'decided_at', 'thread']) {
+    assert(f in item, `a queue item needs ${f}`);
+  }
 
   const audited = w.audit.all().filter((e) => e.action === 'decision');
   assertEqual(audited.length, 1, 'every decision is an audit record');
@@ -506,6 +518,220 @@ await check('conflicting live answers are surfaced, never resolved', () => {
   assertEqual(res.outputs.sort(), ['X1', 'X2'], 'both sides are named');
   assertEqual(w.ledger.conflicts().length, 1, 'and the ledger agrees');
   return res.note;
+});
+
+// ──────────────────── MISSION CONTROL STRUCTURE ────────────────────
+phase('Mission Control: items in lanes, work status, an append-only thread');
+
+const fleetWith = (agents = [{ id: 'analyst', purpose: 'reads and reconciles' }]) => {
+  const w = world();
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents });
+  return { w, board: w.fleet('sarah', 'f_sarah').board };
+};
+
+const PLAN = {
+  understanding: 'Reconcile the two revenue figures before Monday',
+  actions: ['read both outputs', 'state both in the note', 'recommend the warehouse line'],
+  needs: ['nothing'],
+  caution: 'will not pick a winner between two live figures',
+  source: 'agent',
+};
+
+await check('an item carries a lane, a kind and a work status, not just a thread position', () => {
+  const { board } = fleetWith();
+  const res = board.add('sarah', { title: 'Q3 reconciliation', lane: 'analyst', kind: 'task', status: 'blocked', next: 'chase the billing extract', tag: 'finance' });
+  assert(res.ok, JSON.stringify(res.errors));
+  const item = res.item;
+  assertEqual(item.lane, 'analyst', 'the lane says who owns it');
+  assertEqual(item.status, 'blocked', 'the status says where the WORK is');
+  assertEqual(item.kind, 'task', 'the kind says what sort of thing it is');
+  assert(item.next && item.touched, 'a next action and a touched date');
+  return `${item.id}: ${item.lane} / ${board.statuses()[item.status].name} / next "${item.next}"`;
+});
+
+await check('a lane has to be an agent the fleet actually registered', () => {
+  const { board } = fleetWith();
+  const res = board.add('sarah', { title: 'x', lane: 'nobody' });
+  assert(!res.ok, 'an unknown lane must be refused');
+  return res.errors[0];
+});
+
+await check('a proposal must be answerable: understanding, actions, needs, source', () => {
+  const { board } = fleetWith();
+  const item = board.instruct('sarah', 'reconcile the two figures').item;
+  const bad = board.propose(item.id, { agent: 'analyst', proposal: { understanding: 'sure', source: 'agent' } });
+  assert(!bad.ok, 'a proposal with no actions cannot be proposed');
+  const good = board.propose(item.id, { agent: 'analyst', proposal: PLAN });
+  assert(good.ok, JSON.stringify(good.errors));
+  assertEqual(good.entry.proposal.caution, PLAN.caution, 'what it will NOT do survives onto the thread');
+  assertEqual(good.entry.replyTo, board.read(item.id).conversation[0].id, 'and it answers the instruction');
+  return bad.errors[0];
+});
+
+await check('a verdict on a plan authorises it and executes nothing', () => {
+  const { w, board } = fleetWith();
+  const item = board.instruct('sarah', 'reconcile the two figures').item;
+  const proposal = board.propose(item.id, { agent: 'analyst', proposal: PLAN }).entry;
+
+  const res = board.decide('sarah', item.id, proposal.id, { verdict: 'approved', note: 'go' });
+  assert(res.ok, JSON.stringify(res.errors));
+  assertEqual(w.ledger.all().length, 0, 'approving a plan publishes nothing');
+
+  const t = board.read(item.id).conversation;
+  assertEqual(t.map((e) => e.kind), ['instruction', 'proposal', 'decision'], 'the thread reads as a conversation');
+  assertEqual(t[1].verdict, 'approved', 'the proposal is stamped so the queue empties');
+  return 'approved intent recorded; the agent still has to do the work and report';
+});
+
+await check('a verdict on a candidate output IS the publish, and the thread says so', () => {
+  const { w, board } = fleetWith();
+  const item = board.instruct('sarah', 'summarise my inbox').item;
+  const proposal = board.propose(item.id, {
+    agent: 'analyst',
+    proposal: { ...PLAN, understanding: 'publish the weekly digest' },
+    candidate: {
+      id: 'W9', kind: 'digest', body: { subject: 'inbox', value: 'weekly summary' },
+      sources: [{ system: 'gmail', ref: 'label/inbox', harness: true }],
+    },
+  });
+  assert(proposal.ok, JSON.stringify(proposal.errors));
+  assert(proposal.scope_preview.scope_label, 'the audience is shown before anyone signs');
+
+  assertEqual(w.ledger.all().length, 0, 'nothing reaches the ledger before the verdict');
+  const res = board.decide('sarah', item.id, proposal.entry.id, { verdict: 'approved' });
+  assertEqual(w.ledger.all().length, 1, 'the verdict published exactly one output');
+
+  const kinds = board.read(item.id).conversation.map((e) => e.kind);
+  assertEqual(kinds, ['instruction', 'proposal', 'decision', 'report'], 'and a report records what happened');
+  return `preview said ${proposal.scope_preview.scope_label}; published ${res.published.id} at ${res.published.scope}`;
+});
+
+await check('the audience is visible before anyone signs, and says when it was overruled', () => {
+  const { w, board } = fleetWith();
+  onboard(w, manifest({ id: 'narrow', connectors: [], scope: { type: 'list', members: ['sarah'] }, produces: ['metric'] }));
+  enterpriseOutput(w, { id: 'N1', agent: 'narrow', subject: 'deal', value: 1 });
+
+  const item = board.instruct('sarah', 'summarise the deal').item;
+  const p = board.propose(item.id, {
+    agent: 'analyst',
+    proposal: PLAN,
+    candidate: {
+      id: 'D1', kind: 'metric', body: { subject: 'deal', value: 2 },
+      derived_from: ['N1'],
+      scope: { type: 'org' }, // the agent asks for org-wide
+    },
+  });
+  assert(p.ok, JSON.stringify(p.errors));
+  assertEqual(p.scope_preview.scope_label, '1 named: sarah', 'the preview computes the real audience');
+  assert(p.scope_preview.overruled === true, 'and says the producer asked for something wider');
+  assertEqual(w.ledger.all().length, 1, 'previewing writes nothing to the ledger');
+
+  const res = board.decide('sarah', item.id, p.entry.id, { verdict: 'approved' });
+  assertEqual(res.published.scope, p.scope_preview.scope_label, 'and the published scope matches what was shown');
+  return `preview and publish agree: ${res.published.scope}`;
+});
+
+await check('a proposal cannot be decided twice', () => {
+  const { board } = fleetWith();
+  const item = board.instruct('sarah', 'x').item;
+  const p = board.propose(item.id, { agent: 'analyst', proposal: PLAN }).entry;
+  board.decide('sarah', item.id, p.id, { verdict: 'approved' });
+  const again = board.decide('sarah', item.id, p.id, { verdict: 'rejected' });
+  assert(!again.ok, 'a decided proposal is closed');
+  return again.errors[0];
+});
+
+await check('a field change is an entry, so an item says how it got here', () => {
+  const { board } = fleetWith();
+  const item = board.add('sarah', { title: 'Q3 reconciliation', lane: 'analyst', status: 'now' }).item;
+  const res = board.patch('sarah', item.id, { status: 'waiting', waitingOn: 'billing team', next: 'chase the extract' });
+  assert(res.ok, JSON.stringify(res.errors));
+  const changes = board.read(item.id).changes;
+  assertEqual(changes.length, 1, 'one entry for the whole patch');
+  assertEqual(changes[0].author, 'system', 'written by the board, never by hand');
+  assert(!board.read(item.id).conversation.some((e) => e.kind === 'change'), 'and kept out of the conversation');
+
+  const noop = board.patch('sarah', item.id, { status: 'waiting' });
+  assert(noop.unchanged, 'a no-op patch writes no entry');
+  return changes[0].body;
+});
+
+await check('a change entry cannot be forged by hand', () => {
+  const { board } = fleetWith();
+  const item = board.instruct('sarah', 'x').item;
+  const res = board.post('sarah', item.id, 'change', 'Status: Blocked -> Done');
+  assert(!res.ok, 'only the board writes change entries');
+  return res.errors[0];
+});
+
+await check('parking is lossless: an item comes back to the status it left', () => {
+  const { board } = fleetWith();
+  const item = board.add('sarah', { title: 'later', lane: 'analyst', status: 'waiting', waitingOn: 'legal' }).item;
+  board.park('sarah', item.id, 'client pushed the date');
+  assertEqual(board.get(item.id).status, 'parked', 'parked items stay on the board');
+  board.unpark('sarah', item.id);
+  assertEqual(board.get(item.id).status, 'waiting', 'and return as waiting, not as in flight');
+  return 'waiting -> parked -> waiting, with both moves on the thread';
+});
+
+await check('archiving is lossless and leaves the default board', () => {
+  const { board } = fleetWith();
+  const item = board.instruct('sarah', 'done with this').item;
+  board.archive('sarah', item.id, 'superseded');
+  assertEqual(board.all().length, 0, 'archived items leave the board');
+  assertEqual(board.archived().length, 1, 'but nothing is deleted');
+  board.restore('sarah', item.id);
+  assertEqual(board.all().length, 1, 'and restore brings it back whole');
+  return 'archive and restore keep every field';
+});
+
+await check('finished work leaves the default board without being archived', () => {
+  const { board } = fleetWith();
+  const item = board.instruct('sarah', 'ship it').item;
+  board.patch('sarah', item.id, { status: 'shipped' });
+  assertEqual(board.all().length, 0, 'shipped work is off the default board');
+  assertEqual(board.all({ all: true }).length, 1, 'and still there when asked for');
+  return 'done and shipped both close an item';
+});
+
+await check('every write bumps a revision, so a stale client can tell', () => {
+  const { board } = fleetWith();
+  const before = board.revision();
+  board.instruct('sarah', 'something');
+  assert(board.revision() > before, 'the revision moved');
+  return `revision ${before} -> ${board.revision()}`;
+});
+
+await check('the board separates what waits on me from what waits on an agent', () => {
+  const { board } = fleetWith([{ id: 'analyst' }, { id: 'briefer' }]);
+  const answered = board.instruct('sarah', 'reconcile the figures', { lane: 'analyst' }).item;
+  board.propose(answered.id, { agent: 'analyst', proposal: PLAN });
+  const unanswered = board.instruct('sarah', 'draft the brief', { lane: 'briefer' }).item;
+
+  const mine = board.waitingOnOwner();
+  const theirs = board.waitingOnAgents();
+  assertEqual(mine.length, 1, 'one proposal waits on the owner');
+  assertEqual(mine[0].item.id, answered.id, 'the answered one');
+  assertEqual(theirs.length, 1, 'one instruction waits on an agent');
+  assertEqual(theirs[0].item.id, unanswered.id, 'the unanswered one');
+  assertEqual(board.waitingOnAgents('analyst').length, 0, 'and it can be read per lane');
+  return 'two queues, and neither is the other';
+});
+
+await check('both boards speak the same thread grammar', () => {
+  const { w, board } = fleetWith();
+  const item = board.instruct('sarah', 'x').item;
+  const sub = w.board.submit({ type: 'agent_onboarding', subject: 'incident-summary', requester: 'priya' });
+  w.board.assign(sub.item.id, 'priya');
+  w.board.decide(sub.item.id, { decision: 'approved', by: 'priya', note: 'scope reviewed' });
+
+  const fleetKinds = new Set(board.read(item.id).item.thread.map((e) => e.kind));
+  const queueKinds = new Set(w.board.read(sub.item.id).item.thread.map((e) => e.kind));
+  for (const k of [...fleetKinds, ...queueKinds]) {
+    assert(ENTRY_KINDS.includes(k), `${k} is not a shared entry kind`);
+  }
+  assert(queueKinds.has('decision') && queueKinds.has('change'), 'the queue threads decisions and changes too');
+  return `fleet: ${[...fleetKinds].join(', ')} | queue: ${[...queueKinds].join(', ')}`;
 });
 
 // ──────────────────── WORKSPACES, TOOLS, PLATFORM LINK ────────────────────

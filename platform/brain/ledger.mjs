@@ -79,6 +79,23 @@ export class Ledger {
     return { scope: fleetScope(output.producer.fleet), basis: 'fleet agent root output defaults fleet-private' };
   }
 
+  // A dry run: what the ledger WOULD compute, so whoever is about to sign can
+  // see the audience first. Writes nothing. `overruled` is the line that
+  // matters on a board — it says the producer asked for something wider and is
+  // not going to get it.
+  previewScope(candidate) {
+    if (!candidate || !candidate.producer) return { ok: false, errors: ['producer is required'] };
+    const { scope, basis } = this.computeScope(candidate);
+    return {
+      ok: true,
+      scope,
+      scope_label: describe(scope),
+      scope_basis: basis,
+      declared_by_producer: candidate.scope ?? null,
+      overruled: Boolean(candidate.scope) && JSON.stringify(candidate.scope) !== JSON.stringify(scope),
+    };
+  }
+
   publish(candidate) {
     const errs = validate(candidate);
     if (errs.length) return { ok: false, errors: errs };

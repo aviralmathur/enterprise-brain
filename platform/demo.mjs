@@ -98,34 +98,49 @@ const conn = f.tools.connectionDescriptor({
 });
 line(`   descriptor written to ${conn.path} — she points her harness at it`);
 
-step(7, 'Her agent derives an output — the ledger computes its scope');
-const item = board.instruct('sarah', 'combine the incident and revenue picture for the ops note').item;
-board.propose(item.id, {
+step(7, 'Her agent answers on the board — a proposal she can actually decide');
+const item = board.instruct('sarah', 'combine the incident and revenue picture for the ops note', {
+  lane: 'analyst', kind: 'task', tag: 'weekly ops',
+}).item;
+const proposed = board.propose(item.id, {
   agent: 'analyst',
+  proposal: {
+    understanding: 'One note covering incidents and revenue for the weekly ops read',
+    actions: ['read both desks', 'derive one brief', 'publish it for the ops list'],
+    needs: [],
+    caution: 'will not restate a figure the ledger marks stale',
+    source: 'agent',
+  },
   candidate: {
     id: 'ops_note', kind: 'brief', body: { subject: 'weekly-ops', value: 'incidents up, revenue on plan' },
     derived_from: ['inc_week', 'rev_q4'],
     scope: { type: 'org' },          // the agent asks for org-wide
   },
-  note: 'derived from both desks',
 });
+line(`   understanding: ${proposed.entry.proposal.understanding}`);
+line(`   will not: ${proposed.entry.proposal.caution}`);
+line(`   preview before she signs: ${proposed.scope_preview.scope_label}` +
+     `${proposed.scope_preview.overruled ? ' (narrower than the agent asked for)' : ''}`);
+
+step(8, 'Her verdict is the publish — and the ledger computes the scope');
 const pub = board.approve('sarah', item.id);
 line(`   agent asked for: org-wide`);
 line(`   ledger computed: ${describe(pub.output.scope)}`);
 line(`   basis: ${pub.output.scope_basis}`);
+line(`   thread: ${board.read(item.id).conversation.map((e) => e.kind).join(' -> ')}`);
 line(`   → restricted data cannot be laundered into a wider audience`);
 
-step(8, 'Raj cannot see the derived note; Sarah can');
+step(9, 'Raj cannot see the derived note; Sarah can');
 for (const who of ['sarah', 'raj']) {
   const r = w.query.read(who, 'ops_note');
   line(`   ${who}: ${r.ok ? 'allowed' : 'refused — ' + r.reason}`);
 }
 
-step(9, 'Invoke without a grant is refused by the gateway');
+step(10, 'Invoke without a grant is refused by the gateway');
 let res = w.gateway.invoke({ employee: 'sarah', via: { fleet: 'f_sarah', agent: 'analyst' }, target: 'incident-desk', op: 'incident.summary' });
 line(`   refused at stage "${res.stage}": ${res.reason}`);
 
-step(10, 'She requests one; the platform team decides it');
+step(11, 'She requests one; the platform team decides it');
 const req = await board.requestGrant('sarah', { agent: 'analyst', target: 'incident-desk', justification: 'weekly ops note' });
 line(`   platform queue: ${w.board.queue().length} open item`);
 w.board.assign(req.platform_item, 'priya');
@@ -133,7 +148,7 @@ w.board.decide(req.platform_item, { decision: 'approved', by: 'priya', note: 'ti
 w.grants.issue({ subject: { type: 'fleet_agent', fleet: 'f_sarah', agent: 'analyst' }, agent: 'incident-desk', expires_at: soon(), approved_by: 'priya', request_id: req.platform_item });
 line(`   sarah sees on her own board: ${JSON.stringify(await board.grantStatus(req.item.id))}`);
 
-step(11, 'Now the read invoke works — and a write still needs a human');
+step(12, 'Now the read invoke works — and a write still needs a human');
 res = w.gateway.invoke({ employee: 'sarah', via: { fleet: 'f_sarah', agent: 'analyst' }, target: 'incident-desk', op: 'incident.summary' });
 line(`   read:  ${res.ok ? 'allowed → published ' + res.published : 'refused'}`);
 res = w.gateway.invoke({ employee: 'sarah', via: { fleet: 'f_sarah', agent: 'analyst' }, target: 'incident-desk', op: 'incident.create', args: { short_description: 'payments latency' } });
@@ -141,7 +156,7 @@ line(`   write: refused at stage "${res.stage}" — ${res.reason}`);
 res = w.gateway.invoke({ employee: 'sarah', via: { fleet: 'f_sarah', agent: 'analyst' }, target: 'incident-desk', op: 'incident.create', args: { short_description: 'payments latency' }, approval: { approved_by: 'sarah' } });
 line(`   write with approval: ${res.ok ? 'allowed → ' + res.result.receipt.body.value.number : 'refused'}`);
 
-step(12, 'The revenue desk corrects itself — everything downstream goes stale');
+step(13, 'The revenue desk corrects itself — everything downstream goes stale');
 line(`   before: ops_note is ${w.ledger.freshnessOf('ops_note')}`);
 w.ledger.correct('rev_q4', newOutput({
   id: 'rev_q4_v2', kind: 'metric', producer: { fleet: 'enterprise', agent: 'revenue-desk', identity: 'priya' },
@@ -150,12 +165,12 @@ w.ledger.correct('rev_q4', newOutput({
 line(`   after:  ops_note is ${w.ledger.freshnessOf('ops_note')} — ${w.ledger.get('ops_note').stale_reason}`);
 line(`   → this is the difference between a brain and a wiki`);
 
-step(13, 'A deletion request, honoured without breaking provenance');
+step(14, 'A deletion request, honoured without breaking provenance');
 const t = w.ledger.tombstone('inc_week', 'subject access request');
 line(`   inc_week: ${w.ledger.get('inc_week').state}, body ${JSON.stringify(w.ledger.get('inc_week').body)}`);
 line(`   cascaded to: ${t.cascaded.join(', ') || '(nothing further)'}`);
 
-step(14, 'What governance can see');
+step(15, 'What governance can see');
 const rows = w.audit.all();
 line(`   ${rows.length} audit rows across ${new Set(rows.map((r) => r.action)).size} action types`);
 for (const a of ['consume', 'invoke', 'grant', 'decision']) {

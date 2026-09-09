@@ -18,10 +18,17 @@ step on the employee's own board, and the employee is the accountable signer.
 ## The thread
 
 ```js
-const item = fleet.board.instruct('<employee>', '<what was asked for>').item;
+const item = fleet.board.instruct('<employee>', '<what was asked for>', { lane: '<agent>' }).item;
 
-fleet.board.propose(item.id, {
+const proposed = fleet.board.propose(item.id, {
   agent: '<agent>',
+  proposal: {
+    understanding: '<one line restating the ask>',
+    actions: ['<how the output was produced>'],
+    needs: [],
+    caution: '<what you deliberately did not do>',
+    source: 'agent',
+  },
   candidate: {
     id: '<outputId>',
     kind: '<kind>',
@@ -29,14 +36,24 @@ fleet.board.propose(item.id, {
     sources: [{ system: 'gmail', ref: '<ref>', harness: true }],
     derived_from: ['<upstreamId>'],
   },
-  note: '<how it was produced>',
 });
 
-fleet.board.approve('<employee>', item.id);   // ← this publishes
+// The audience the ledger WILL compute, before anyone signs. Writes nothing.
+proposed.scope_preview.scope_label;
+proposed.scope_preview.overruled;   // true when the producer asked for something wider
+
+fleet.board.approve('<employee>', item.id);   // ← this verdict publishes
 ```
 
-Nothing is on the ledger until `approve`. A proposal the employee rejects never
+Nothing is on the ledger until the verdict. A proposal the employee rejects never
 leaves the fleet.
+
+Show the user `scope_preview` before asking for the verdict. It is the one moment
+they can see who will be able to read this, and `overruled` tells them plainly
+that the agent asked for a wider audience than it is going to get.
+
+A verdict on a proposal with no candidate authorises a plan and publishes
+nothing. Only a candidate output makes the verdict a publish. See `fleet-board`.
 
 ## Do not set the scope
 

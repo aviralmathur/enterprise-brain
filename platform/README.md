@@ -106,6 +106,7 @@ brain/                  the ledger and everything harness-agnostic (D12)
   ledger.mjs            append-only store, computed scope, cascade, tombstones
   provenance.mjs        derived_from graph, descendants, conflicts
   query.mjs             the consume path: two checks, cites provenance
+  board.mjs             Mission Control: items, lanes, statuses, append-only threads
   identity.mjs          ── SEAM: the IdP. Local provider; stores nothing.
   audit.mjs             everything crossing the fleet boundary
   telemetry.mjs         usage → deprecation candidates
@@ -116,7 +117,7 @@ platform-fleet/         owned and governed by the platform team (D1)
   fleet-roster.mjs      the one shared fact about a fleet: its addressable agents
   grants.mjs            time-boxed invoke grants
   gateway.mjs           the only enforcement that counts (D13)
-  board.mjs             thin review queue (D19)
+  board.mjs             thin review queue (D19); same thread grammar
   handler.mjs           mountable board handler — two routes, no enumeration
   host.mjs              serves /ledger, /gateway, /board; identity from the token
   tokens.mjs            ── SEAM: token -> { employee, fleet }
@@ -126,12 +127,12 @@ employee-fleet/         self-serve, free to create (D2)
   tools.mjs             which tools the fleet wants; the connection descriptor
   platform-link.mjs     direct or URL — the board cannot tell which
   enforce.mjs           advisory local check — worthless against intent
-  board.mjs             private cockpit; approve == publish
+  board.mjs             private cockpit; a verdict authorises, and publishes an output
 
 kit/skills/             what an employee installs — six skills, one file each
 spec/contracts.md       the Phase 0 contracts
 workspace.mjs           storage ownership: platform vs employee
-acceptance/run.mjs      45 checks, one per exit test or decision
+acceptance/run.mjs      60 checks, one per exit test or decision
 wire.mjs                buildPlatform() and buildFleet()
 serve.mjs               start the host
 ```
@@ -157,13 +158,57 @@ Not one component instanced twice (D9).
 |---|---|---|
 | Operator | one employee | a team, with assignment |
 | Item subject | my own work | someone else's request |
-| Thread | instruct → propose → approve → report | request → review → decide → notify |
+| Item lifecycle | six work statuses, in lanes | open → in review → closed |
 | An item does | publishes an output to the ledger | changes a grant, scope or lifecycle |
 | Audit | private, unaudited | every decision is an audit record |
 
-They share exactly one interface: a grant request leaves the fleet board, becomes
-an item in the platform queue, and the decision returns as a status on the
-requester's own item (D18). Neither side can read the other's board.
+What they **do** share is the thread. The same append-only entries in the same
+six kinds — `instruction`, `proposal`, `decision`, `note`, `report`, `change` —
+defined once in `brain/board.mjs`. One vocabulary, two boards: somebody who can
+read one can read the other, which was not true when each invented its own
+states.
+
+They share exactly one *interface*: a grant request leaves the fleet board,
+becomes an item in the platform queue, and the decision returns as a status on
+the requester's own item (D18). Neither side can read the other's board.
+
+### What an item looks like
+
+An item carries a **lane** (which agent owns it), a **kind**, and a **status**
+that describes where the *work* is rather than where the conversation is:
+
+| Status | Shown as | Means |
+|---|---|---|
+| `now` | In flight | moving, ball is with us |
+| `blocked` | Blocked | something must break first |
+| `waiting` | Waiting on | ball is with someone else |
+| `parked` | Parked | deliberately not now |
+| `done` / `shipped` | Done / Shipped | finished, off the default board |
+
+Keeping the two apart is the change that makes a board readable. "Proposed" is a
+fact about a conversation; "Blocked" is a fact about the work, and an item can be
+blocked with nothing pending at all.
+
+Parking and archiving are both **lossless**: `parkedFrom` remembers the status an
+item held, so unparking a parked `waiting` item returns it to `waiting` and not
+to `now`, and an archived item keeps every field so restore is total. Nothing is
+ever deleted.
+
+A field change is itself a thread entry, written by the board and never by hand,
+so an item can always say how it got here.
+
+### A verdict authorises; it does not execute
+
+Approving a **plan** records approved intent and runs nothing — the agent carries
+it out in its own next session and posts a `report` on the same thread. Approving
+a proposal that carries a **candidate output** publishes it, because publishing is
+the act being authorised. The board writes the report either way, so both read
+identically.
+
+A proposal has to be answerable before it can carry a verdict: an understanding,
+at least one concrete action, what it needs, what it will deliberately not do,
+and where the reply came from (`agent`, `summary` or `offline`). A one-line
+assurance is refused, because there is nothing in it to approve.
 
 The platform board ships **thin** (D19) — items, assignee, decision, audit record.
 SLAs, standing recurring reviews and conflict adjudication are Phase 6, specified
@@ -172,7 +217,7 @@ fields are still absent, so the deferral stays honest.
 
 ## What the acceptance suite proves
 
-45 checks, grouped by the phase whose exit test they are.
+60 checks, grouped by the phase whose exit test they are.
 
 | Phase | Proves |
 |---|---|
@@ -182,6 +227,7 @@ fields are still absent, so the deferral stays honest.
 | 4 | a fleet consumes on first run with zero manual grants; an ungranted invoke is refused by the gateway; **disabling the local check changes nothing**; approve is the publish gate; nobody drives someone else's board |
 | 5 | granted invokes, identical ungranted refused, both audited; every vendor write terminates at a human; the gateway sheds rather than passing a stampede; revocation is immediate; the boards share only the grant request |
 | 6 | status comes from a check that can fail; telemetry surfaces unused agents; conflicting answers are surfaced, never resolved |
+| Mission Control | an item carries a lane, a kind and a work status; a lane must be a registered agent; a proposal without concrete actions is refused; **a verdict on a plan publishes nothing, a verdict on a candidate publishes exactly one output**; a proposal cannot be decided twice; a field change is an entry and cannot be forged; park and archive are both lossless; every write bumps a revision; what waits on me and what waits on an agent are two different queues; both boards speak the same thread grammar |
 | Workspaces | employee and platform storage are separate trees; two employees never share a file; tool selection sorts harness from enterprise; the descriptor names all three endpoints; the URL link behaves identically to the direct one; **the URL route cannot be walked to read someone else's request** |
 | Host | health is open and everything else needs a live token; **a body-supplied employee id is ignored and a body-supplied fleet id cannot be borrowed**; an unregistered agent is refused first; publishing over the wire still computes scope and forces the signer; an approval cannot name another approver; revocation and offboarding are immediate; an archived fleet cannot act; a 500 leaks nothing |
 

@@ -104,6 +104,9 @@ export function buildFleet({ platform, employee, fleet, ws, workspaceRoot, link 
 
   const board = new FleetBoard(paths.board, {
     fleet, owner: employee, ledger: platform.ledger, platformLink,
+    // The board's lanes are the fleet's registered agents, so a lane and an
+    // addressable agent cannot drift apart.
+    roster: platform.fleetRoster,
   });
 
   const tools = new FleetTools(paths, {

@@ -81,9 +81,23 @@ document in an unvetted fleet must not become an enterprise-wide fact.
 
 ## 5 · The promotion gate
 
-The approve step on an employee's own Mission Control **is** the publish action
-(D9). Approving does not widen anything — the ledger still computes the scope —
-it only lets the output through. The employee is the accountable signer.
+A **verdict** on the employee's own Mission Control is the publish action (D9),
+and it is the only path to the ledger. Approving does not widen anything — the
+ledger still computes the scope — it only lets the output through. The employee
+is the accountable signer.
+
+A verdict authorises; it does not execute. Approving a *plan* records approved
+intent and runs nothing: the agent carries it out in its own next session and
+posts a `report` on the same thread. The exception is the one that matters here —
+a proposal carrying a **candidate output** publishes on approval, because
+publishing is the act being authorised. Both cases read identically on the
+thread, which is how the board stays honest about the difference between "I said
+yes" and "it happened".
+
+A proposal must be answerable before it can be decided: an understanding, at
+least one concrete action, what it needs, and where the reply came from. A
+one-line assurance cannot carry a verdict, because there is nothing in it to
+approve.
 
 A widening request routes to the owner of the narrowest input, never to the
 requester.

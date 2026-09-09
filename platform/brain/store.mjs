@@ -21,8 +21,12 @@ export function readLines(path) {
     .map((l) => JSON.parse(l));
 }
 
+// The fallback is CLONED, never handed back by reference. A caller that hoists
+// its default — `const EMPTY = { items: {}, seq: 0 }` — would otherwise have
+// every reader in the process mutating the same object, and two employees would
+// quietly share a board that never existed on disk.
 export function readDoc(path, fallback) {
-  if (!existsSync(path)) return fallback;
+  if (!existsSync(path)) return structuredClone(fallback);
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
