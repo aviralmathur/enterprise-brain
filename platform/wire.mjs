@@ -13,7 +13,7 @@ import { Audit } from './brain/audit.mjs';
 import { Query } from './brain/query.mjs';
 import { createLocalProvider } from './brain/identity.mjs';
 import { Telemetry } from './brain/telemetry.mjs';
-import { QualityGates } from './brain/gates.mjs';
+import { QualityGates, registerDefaultGates } from './brain/gates.mjs';
 import { writeDoc } from './brain/store.mjs';
 
 import { Registry } from './platform-fleet/registry.mjs';
@@ -67,6 +67,9 @@ export function buildPlatform({ ws, fresh = false, idp = null, workspaceRoot = n
   const gateway = new Gateway({ registry, grants, ledger, identity, audit, connectors });
   const telemetry = new Telemetry(audit, registry, ledger);
   const gates = new QualityGates(ledger);
+  // A deployment starts with gates for the kinds it ships. Without any, every
+  // output is unverified and the label stops meaning anything.
+  registerDefaultGates(gates);
 
   // What a platform team mounts on the server they already run, so fleets can
   // reach the board over a URL.

@@ -858,6 +858,27 @@ await check('the URL route cannot be walked to read someone else\'s request', as
   return 'two routes only; no enumeration path exists';
 });
 
+await check('a deployment ships with gates, and the seeded world proves both outcomes', async () => {
+  const { seedWorld, DIRECTORY: SEED_DIRECTORY } = await import('../seed.mjs');
+  const w = world({ idp: SEED_DIRECTORY });
+  // Seeding runs the gates, so this is the label a person would actually see on
+  // a fresh host rather than one arranged by the check.
+  await seedWorld(w, { baseUrl: 'http://localhost' });
+
+  assert(w.gates.registered().length > 0, 'a host with no gates registered can only ever say unverified');
+
+  const byStatus = w.ledger.all().reduce((a, o) => {
+    a[o.status] = (a[o.status] ?? 0) + 1;
+    return a;
+  }, {});
+  assert(byStatus.verified > 0, 'something passed a gate');
+  assert(byStatus.unverified > 0, 'and a kind with no gate stayed unverified');
+
+  const passed = w.ledger.all().find((o) => o.status === 'verified');
+  assert(passed.status_evidence?.evidence, 'a verified output carries the evidence that verified it');
+  return `${byStatus.verified} verified, ${byStatus.unverified} unverified: "${passed.status_evidence.evidence}"`;
+});
+
 // ──────────────────── THE BOARDS, AS SERVED PAGES ────────────────────
 phase('The two boards a person can open, and the API behind them');
 

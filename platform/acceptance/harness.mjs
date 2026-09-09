@@ -17,9 +17,16 @@ export const DIRECTORY = {
 let n = 0;
 // `devTokens` is the only host option a check needs to vary: it decides whether
 // the local token list is served, and that is a rule worth proving both ways.
-export function world({ devTokens = false } = {}) {
+export function world({ devTokens = false, idp = null } = {}) {
   n += 1;
-  return build({ root: join('data', `case-${n}`), fresh: true, idp: structuredClone(DIRECTORY), devTokens });
+  return build({
+    root: join('data', `case-${n}`),
+    fresh: true,
+    // A check that drives seed.mjs needs that world's own directory, because a
+    // fleet cannot be registered for somebody the IdP has never heard of.
+    idp: structuredClone(idp ?? DIRECTORY),
+    devTokens,
+  });
 }
 
 // Onboard an enterprise agent the way the platform team would: manifest + review.
