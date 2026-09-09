@@ -54,6 +54,9 @@ export async function handleFleet(ctx) {
       waiting_on_you: F.board.waitingOnOwner().length,
       waiting_on_agents: F.board.waitingOnAgents().length,
       revision: F.board.revision(),
+      // When this board last moved, so a header can say when rather than which
+      // revision. A board that has never been written has no timestamp.
+      updated_at: F.board.updatedAt(),
       visible_outputs: platform.ledger.visible(employee).length,
       note: 'this board is private: the platform team sees your consumes, invokes and published outputs, not this',
     });
@@ -98,6 +101,7 @@ export async function handleFleet(ctx) {
           Object.entries(F.board.columns()).map(([k, v]) => [k, v.map((i) => i.id)]),
         ),
         revision: F.board.revision(),
+        updated_at: F.board.updatedAt(),
       });
     }
     if (method === 'GET' && parts[1] === 'archived') {

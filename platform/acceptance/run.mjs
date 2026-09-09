@@ -899,6 +899,35 @@ await check('every invocable agent has its connector wired', async () => {
   return `${wired.join(', ')} all have an adapter`;
 });
 
+await check('seeding twice leaves one world, not two', async () => {
+  const { seedWorld, DIRECTORY: SEED_DIRECTORY } = await import('../seed.mjs');
+  const { buildPlatform } = await import('../wire.mjs');
+  const { platformWorkspace } = await import('../workspace.mjs');
+  const root = 'data/reseed';
+
+  // Exactly what `serve.mjs --seed` does, twice. A `fresh` that clears only the
+  // platform side leaves every employee board behind, and the second run stacks
+  // a whole second world on top of the first: the same items appear twice.
+  const counts = [];
+  for (let i = 0; i < 2; i += 1) {
+    const p = buildPlatform({
+      ws: platformWorkspace(`${root}/platform`),
+      workspaceRoot: `${root}/workspaces`,
+      fresh: true,
+      idp: SEED_DIRECTORY,
+    });
+    await seedWorld(p, { baseUrl: 'http://localhost' });
+    counts.push({
+      items: p.fleetFor('alice', 'f_alice').board.all({ all: true }).length,
+      outputs: p.ledger.all().length,
+      queue: p.board.all().length,
+    });
+  }
+
+  assertEqual(counts[1], counts[0], 'a second seeded start must produce the same world, not a doubled one');
+  return `${counts[0].items} items, ${counts[0].outputs} outputs, ${counts[0].queue} queue items, both times`;
+});
+
 // ──────────────────── HOSTED STORAGE ────────────────────
 phase('Hosted storage: the same brain with no filesystem under it');
 

@@ -36,7 +36,17 @@ import { platformWorkspace, employeeWorkspace } from './workspace.mjs';
 
 export function buildPlatform({ ws, fresh = false, idp = null, workspaceRoot = null, devTokens = false } = {}) {
   const paths = ws ?? platformWorkspace();
-  if (fresh && existsSync(paths.root)) rmSync(paths.root, { recursive: true, force: true });
+
+  // `fresh` has to clear the employee workspaces too, not just the platform
+  // side. Clearing one of the two leaves every board behind, and the next
+  // seeded start builds a second world on top of the first: the same six items
+  // appear twice, then three times. On a backend with no filesystem the
+  // in-memory documents are what has to go.
+  if (fresh) {
+    if (existsSync(paths.root)) rmSync(paths.root, { recursive: true, force: true });
+    if (workspaceRoot && existsSync(workspaceRoot)) rmSync(workspaceRoot, { recursive: true, force: true });
+    currentBackend().reset?.();
+  }
 
   // The IdP sits outside the brain. It is re-read on every resolve; nothing is copied in.
   if (idp) writeDoc(paths.idp, idp);
@@ -146,21 +156,13 @@ export function buildFleet({ platform, employee, fleet, ws, workspaceRoot, link 
 
 // Single-machine composition used by the demo and the acceptance suite.
 export function build({ root = 'data', fresh = false, idp = null, devTokens = false } = {}) {
-  // `fresh` has to clear the WHOLE root, not just the platform side. Clearing
-  // only the platform workspace leaves every employee's board behind, and the
-  // next run reads work that a previous one wrote: a check that passes on a
-  // clean machine and drifts on a used one.
-  //
-  // On a backend with no filesystem there is nothing to unlink, so the
-  // in-memory documents are what has to go.
-  if (fresh) {
-    if (existsSync(root)) rmSync(root, { recursive: true, force: true });
-    currentBackend().reset?.();
-  }
+  // Clearing the whole root, so a second run never reads what the first wrote.
+  if (fresh && existsSync(root)) rmSync(root, { recursive: true, force: true });
 
   const platform = buildPlatform({
     ws: platformWorkspace(`${root}/platform`),
     idp,
+    fresh,
     workspaceRoot: `${root}/workspaces`,
     devTokens,
   });

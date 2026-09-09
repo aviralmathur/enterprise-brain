@@ -168,7 +168,7 @@ ui/                     the boards themselves. Three files, no build step.
 kit/skills/             what an employee installs — six skills, one file each
 spec/contracts.md       the Phase 0 contracts
 workspace.mjs           storage ownership: platform vs employee
-acceptance/run.mjs      73 checks, one per exit test or decision
+acceptance/run.mjs      74 checks, one per exit test or decision
 wire.mjs                buildPlatform() and buildFleet()
 serve.mjs               start the host
 ```
@@ -267,7 +267,7 @@ fields are still absent, so the deferral stays honest.
 
 ## What the acceptance suite proves
 
-73 checks, grouped by the phase whose exit test they are.
+74 checks, grouped by the phase whose exit test they are.
 
 | Phase | Proves |
 |---|---|

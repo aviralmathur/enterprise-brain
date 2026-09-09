@@ -355,6 +355,26 @@ export async function seedWorld(platform, { baseUrl = 'http://127.0.0.1:8040' } 
   });
   A.board.reject('alice', item4.id, 'Not while the two totals disagree. The reconciliation note is the deliverable.');
 
+  // Three items that exist so the header's pressure signals are not all zero on
+  // a fresh host. Each is a state a real board reaches on its own: something
+  // dated that has come due, something whose ball is with somebody else, and
+  // something nobody has touched in over a week.
+  const today = new Date().toISOString().slice(0, 10);
+  const daysAgo = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+
+  A.board.add('alice', {
+    title: 'Sign off the Q3 revenue note with finance',
+    lane: 'analyst', kind: 'decision', status: 'waiting',
+    waitingOn: 'finance review', due: today, tag: 'quarter close',
+    next: 'chase the sign-off',
+  });
+  A.board.add('alice', {
+    title: 'Retire the old stream mapping',
+    lane: 'builder', kind: 'infra', status: 'blocked',
+    next: 'confirm nothing still reads it',
+    touched: daysAgo(11),
+  });
+
   // A parked item and a moved field, so the board shows the whole vocabulary.
   const parked = A.board.add('alice', {
     title: 'Rebuild the quarterly model on the new stream split',

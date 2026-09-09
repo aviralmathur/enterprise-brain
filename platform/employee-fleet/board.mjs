@@ -108,7 +108,7 @@ export class FleetBoard {
   // `add` is the plain form. `instruct` is the common one: create the item and
   // post the first instruction in one call, because an item with no ask on it is
   // just a title.
-  add(actor, { title, lane = 'owner', kind = 'task', status = 'now', tag, next, waitingOn, due, note, links, confidential }) {
+  add(actor, { title, lane = 'owner', kind = 'task', status = 'now', tag, next, waitingOn, due, note, links, confidential, touched }) {
     const guard = this.#assertOwner(actor);
     if (!guard.ok) return guard;
     const laneGuard = this.#assertLane(lane);
@@ -116,7 +116,7 @@ export class FleetBoard {
 
     const db = this.load();
     const id = this.#nextId(db);
-    const item = newItem({ id, title, lane, kind, status, tag, next, waitingOn, due, note, links, confidential });
+    const item = newItem({ id, title, lane, kind, status, tag, next, waitingOn, due, note, links, confidential, touched });
     const errs = validateItem(item, this.lanes);
     if (errs.length) return { ok: false, errors: errs };
 
@@ -532,6 +532,12 @@ export class FleetBoard {
 
   revision() {
     return this.load().revision || 0;
+  }
+
+  // When this board last changed. Null on a board nothing has been written to,
+  // which a caller should render as "not yet" rather than as the epoch.
+  updatedAt() {
+    return this.load().updated_at || null;
   }
 
   // Everything waiting on the owner: a proposal with no verdict, or a request

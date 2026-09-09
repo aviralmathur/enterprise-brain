@@ -5,62 +5,72 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fleet Mission Control</title>
 <style>
+  /*
+   * Ported from tenarai-mission-control/app/globals.css: deep blue-black
+   * ground, signal amber for anything that needs the owner's hand, a stable
+   * hue per lane. This file has no clusters or hues of its own (see
+   * buildSectors/hashHue in the script), so both are derived at runtime from
+   * whatever the API actually returns.
+   */
   :root{
     color-scheme: dark;
-    --bg: #0b0d10;
-    --bg-raised: #14171b;
-    --bg-raised-2: #1b1f24;
-    --bg-hover: #21262d;
-    --border: #2a2f36;
-    --border-soft: #20242a;
-    --text: #e8e6e1;
-    --text-dim: #9aa1ab;
-    --text-faint: #666e79;
-    --accent: #ff9d2e;
-    --accent-dim: #7a4f1a;
-    --accent-bg: #2a1d0e;
-    --accent-text: #ffb85c;
-    --green: #4caf7d;
-    --green-bg: #123321;
-    --amber: #e0a83e;
-    --amber-bg: #332a11;
-    --red: #e5674f;
-    --red-bg: #331714;
-    --neutral: #8891a0;
-    --neutral-bg: #1e232b;
-    --owner: #ff9d2e;
-    --agent: #5aa9e6;
-    --platform: #8891a0;
+    --bg: #0a0f1c;
+    --panel: #0f1626;
+    --panel-2: #151d32;
+    --panel-3: #1b2540;
+    --line: #27324f;
+    --line-soft: #1d2740;
+    --ink: #e9edf6;
+    --ink-dim: #9ba6bf;
+    --ink-faint: #7b86a3;
+    --accent: #f0a41f;
+    --accent-bright: #ffb52e;
+    --accent-ink: #241804;
+    --accent-soft: rgba(240, 164, 31, 0.14);
+    --accent-dim: rgba(240, 164, 31, 0.4);
+    --ok: #3ecf8e;
+    --ok-soft: rgba(62, 207, 142, 0.13);
+    --hot: #ff6d6d;
+    --hot-soft: rgba(255, 109, 109, 0.13);
+    --warn: #e6b455;
+    --warn-soft: rgba(230, 180, 85, 0.12);
+    --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --display: var(--font);
     --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --radius: 8px;
   }
 
   *{ box-sizing: border-box; }
-  body{
+  html, body{
+    margin: 0;
+    padding: 0;
     background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
+    color: var(--ink);
+    font-family: var(--font);
     font-size: 14px;
     line-height: 1.5;
-    margin: 0;
+  }
+  body{
     min-height: 100vh;
     overflow-x: hidden;
+    background-image: radial-gradient(ellipse 75% 45% at 50% -8%, rgba(240,164,31,0.05), transparent 68%);
   }
+  ::selection{ background: var(--accent); color: var(--accent-ink); }
   button, input, select, textarea{ font-family: inherit; font-size: inherit; color: inherit; }
-  button{ cursor: pointer; }
+  button{ cursor: pointer; touch-action: manipulation; }
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible{
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+    border-radius: 4px;
   }
-  a{ color: var(--accent-text); }
-  label{ display:block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
-  input[type=text], input[type=number], textarea, select{
+  a{ color: var(--accent-bright); }
+  label{ display:block; font-size: 12px; color: var(--ink-dim); margin-bottom: 4px; }
+  input[type=text], input[type=number], input[type=password], textarea, select{
     background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
     padding: 7px 10px;
-    color: var(--text);
+    color: var(--ink);
     width: 100%;
   }
   textarea{ resize: vertical; min-height: 60px; }
@@ -69,7 +79,7 @@
   code, pre{ font-family: var(--mono); }
   pre{
     background: var(--bg);
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--line-soft);
     border-radius: 6px;
     padding: 10px;
     overflow: auto;
@@ -77,196 +87,179 @@
     white-space: pre-wrap;
     word-break: break-word;
     font-size: 12px;
-    color: var(--text-dim);
+    color: var(--ink-dim);
   }
 
-  #app{ display:flex; min-height: 100vh; }
-
-  /* ---------- sign-in ---------- */
-  #signin{
-    min-height: 100vh;
+  /* ---------- gate (sign-in) ---------- */
+  .gate{ min-height: 100vh; width:100%; display:flex; align-items:center; justify-content:center; padding: 24px; }
+  .gate-card{
     width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    max-width: 420px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 34px 32px;
+    text-align: center;
+    box-shadow: 0 1px 0 rgba(233,237,246,0.04) inset, 0 30px 80px rgba(2,6,16,0.6);
   }
-  .signin-card{
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px;
-    width: 420px;
-    max-width: 100%;
+  .gate-mark{
+    width: 38px; height: 38px; margin: 0 auto 20px;
+    border-radius: 10px; border: 2px solid var(--accent);
+    position: relative; transform: rotate(45deg);
+    box-shadow: 0 0 0 6px var(--accent-soft);
   }
-  .signin-card h1{ font-size: 18px; }
-  .signin-sub{ color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
-  .signin-reason{
-    background: var(--red-bg);
-    border: 1px solid var(--red);
-    color: #ffb4a3;
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 12px;
-    margin-bottom: 16px;
+  .gate-mark::after{ content:""; position:absolute; inset:9px; border-radius:3px; background:var(--accent); }
+  .gate-card h1{
+    margin:0; font-family: var(--display); font-size: 18px; font-weight: 700;
+    letter-spacing: 0.09em; text-transform: uppercase;
   }
-  .demo-tokens{ margin-top: 18px; display:flex; flex-direction:column; gap:6px; }
+  .gate-sub{ margin: 8px 0 18px; font-size: 13px; color: var(--ink-faint); }
+  .gate-err{
+    text-align:left; background: var(--hot-soft); border: 1px solid var(--hot); color: #ffb4a3;
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; margin: 0 0 16px;
+  }
+  .gate-card .field{ text-align:left; margin-bottom: 4px; }
+  .demo-tokens{ margin-top: 14px; display:flex; flex-direction:column; gap:6px; text-align:left; }
   .demo-token-btn{
     display:flex; justify-content:space-between; align-items:center;
-    background: var(--bg-raised-2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 9px 12px;
-    text-align: left;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 12px; width:100%; text-align:left; color: var(--ink);
   }
-  .demo-token-btn:hover{ background: var(--bg-hover); border-color: var(--accent-dim); }
-  .demo-token-btn .fleet-id{ color: var(--text-faint); font-family: var(--mono); font-size: 11px; }
+  .demo-token-btn:hover{ background: var(--panel-3); border-color: var(--accent-dim); }
+  .demo-token-btn .fleet-id{ color: var(--ink-faint); font-family: var(--mono); font-size: 11px; }
+
+  /* ---------- shared controls ---------- */
   .btn{
-    background: var(--accent);
-    color: #1a1206;
-    border: none;
-    border-radius: 6px;
-    padding: 9px 16px;
-    font-weight: 600;
+    background: var(--accent); color: var(--accent-ink); border: none;
+    border-radius: 8px; padding: 9px 16px; font-weight: 650;
   }
-  .btn:hover{ filter: brightness(1.08); }
+  .btn:hover{ background: var(--accent-bright); }
   .btn:disabled{ opacity:.5; cursor:not-allowed; }
-  .btn-ghost{
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 6px;
-    padding: 8px 14px;
+  .ghost, .btn-ghost{
+    background: transparent; border: 1px solid var(--line); color: var(--ink-dim);
+    border-radius: 8px; padding: 8px 14px; font-size: 12.5px; transition: color .15s ease, border-color .15s ease;
   }
-  .btn-ghost:hover{ background: var(--bg-hover); }
-  .btn-danger{ border-color: var(--red); color: #ffb4a3; }
-  .btn-sm{ padding: 5px 10px; font-size: 12px; border-radius: 5px; }
+  .ghost:hover, .btn-ghost:hover{ color: var(--ink); border-color: var(--ink-faint); }
+  .btn-danger{ border-color: var(--hot); color: #ffb4a3; }
+  .btn-sm{ padding: 5px 10px; font-size: 12px; border-radius: 6px; }
   .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .row-between{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
 
-  /* ---------- shell ---------- */
-  #rail{
-    width: 250px;
-    flex: none;
-    background: var(--bg-raised);
-    border-right: 1px solid var(--border);
-    padding: 16px 14px;
-    display:flex;
-    flex-direction:column;
-    gap: 18px;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
-  }
-  .brand{ display:flex; align-items:center; gap:8px; }
-  .brand-dot{ width:10px; height:10px; border-radius:50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex:none; }
-  .brand-name{ font-weight: 700; letter-spacing: .01em; font-size: 14px; }
-  .identity-card{
-    background: var(--bg-raised-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-  }
-  .identity-name{ font-weight:600; font-size:15px; }
-  .identity-title{ color: var(--text-dim); font-size: 12px; margin-top:2px; }
-  .identity-meta{ margin-top:10px; display:flex; flex-direction:column; gap:4px; font-size:11px; color: var(--text-faint); }
-  .identity-meta code{ color: var(--text-dim); }
-  .privacy-note{
-    font-size: 11px;
-    color: var(--text-faint);
-    line-height: 1.5;
-    border-top: 1px solid var(--border-soft);
-    padding-top: 10px;
-    margin-top: 4px;
-  }
-  nav.views{ display:flex; flex-direction:column; gap:2px; }
-  .view-btn{
-    display:flex; justify-content:space-between; align-items:center;
-    background: transparent; border: none; border-radius: 6px;
-    padding: 9px 10px; color: var(--text-dim); text-align:left; width:100%;
-  }
-  .view-btn:hover{ background: var(--bg-hover); color: var(--text); }
-  .view-btn.active{ background: var(--accent-bg); color: var(--accent-text); font-weight:600; }
-  .badge-count{
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1px 7px;
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-  .badge-count.hot{ background: var(--accent); color:#1a1206; border-color: var(--accent); font-weight:700; }
-  .counts-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:11px; }
-  .counts-grid div{ background: var(--bg); border:1px solid var(--border-soft); border-radius:6px; padding:5px 7px; }
-  .counts-grid b{ color: var(--text); }
-  .rail-footer{ margin-top:auto; display:flex; flex-direction:column; gap:8px; }
+  /* ---------- board shell ---------- */
+  .board{ padding: 22px 24px 60px; max-width: 1900px; margin: 0 auto; }
 
-  #main{ flex:1; min-width:0; padding: 20px 26px 60px; max-width: 1200px; }
-  .view-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
-  .view-header h2{ font-size: 20px; }
-  .view-sub{ color: var(--text-dim); font-size: 13px; margin-top:2px; }
+  /* ---------- .top (ported) ---------- */
+  .top{
+    display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; justify-content:space-between;
+    padding-bottom: 16px; border-bottom: 1px solid var(--line-soft);
+  }
+  .top h1{
+    margin:0; font-family: var(--display); font-size: 19px; font-weight:700;
+    letter-spacing: .1em; text-transform: uppercase; display:flex; align-items:center; gap:10px;
+  }
+  .top h1::before{
+    content:""; width:9px; height:9px; border-radius:2px; background:var(--accent);
+    transform: rotate(45deg); box-shadow: 0 0 0 4px var(--accent-soft);
+    animation: ping 3s ease-in-out infinite;
+  }
+  @keyframes ping{
+    0%,100%{ box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 0 rgba(240,164,31,.35); }
+    60%{ box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 11px rgba(240,164,31,0); }
+  }
+  .asof{ margin: 6px 0 0; font-size: 12px; font-family: var(--mono); color: var(--ink-faint); }
+  .top-stats{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .stat{
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius);
+    padding: 7px 13px; display:flex; align-items:baseline; gap:8px;
+  }
+  .stat b{ font-size: 17px; font-family: var(--mono); font-weight:600; font-variant-numeric: tabular-nums; }
+  .stat span{ font-size: 11.5px; color: var(--ink-faint); }
+  .stat.hot{ border-color: rgba(255,109,109,.45); background: linear-gradient(180deg, var(--hot-soft), var(--panel)); }
+  .stat.hot b{ color: var(--hot); }
+  .stat.warn{ border-color: rgba(230,180,85,.4); background: linear-gradient(180deg, var(--warn-soft), var(--panel)); }
+  .stat.warn b{ color: var(--warn); }
+  .warn-tag{ color: var(--warn); }
+  .banner{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin: 14px 0 0; padding: 10px 14px; border-radius: 8px;
+    background: var(--hot-soft); border: 1px solid rgba(255,109,109,.4); color: #ffa3a3; font-size: 12.5px;
+  }
+  .banner button{ background:none; border:1px solid rgba(255,109,109,.5); color:#ffa3a3; border-radius:6px; padding:3px 9px; font-size:11.5px; }
+
+  /* ---------- .views (ported) ---------- */
+  .views{ display:flex; gap:4px; margin-top:14px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap; }
+  .views button{
+    background:transparent; border:none; border-bottom:2px solid transparent; color:var(--ink-faint);
+    padding: 10px 14px; font-size:13px; display:inline-flex; align-items:center; gap:7px;
+    margin-bottom:-1px; transition: color .15s ease;
+  }
+  .views button:hover{ color: var(--ink-dim); }
+  .views button.on{ color: var(--ink); border-bottom-color: var(--accent); font-weight:600; }
+  .badge{
+    font-style:normal; font-size:10.5px; font-weight:650; font-family:var(--mono);
+    background: var(--accent); color: var(--accent-ink); border-radius:999px; padding:1px 7px;
+    font-variant-numeric: tabular-nums; animation: signal 2.4s ease-in-out infinite;
+  }
+  @keyframes signal{
+    0%,100%{ box-shadow: 0 0 0 0 rgba(240,164,31,.45); }
+    50%{ box-shadow: 0 0 0 5px rgba(240,164,31,0); }
+  }
+  .badge.muted{ background: var(--line); color: var(--ink-dim); animation:none; }
+
+  /* ---------- .hint (ported) ---------- */
+  .hint{ font-size: 10.5px; line-height:1.45; color: var(--ink-faint); }
 
   /* ---------- errors / toasts ---------- */
-  #errors{ position: fixed; top: 16px; right: 16px; z-index: 100; display:flex; flex-direction:column; gap:8px; max-width: 380px; }
+  #errors{ position: fixed; top: 16px; right: 16px; z-index: 500; display:flex; flex-direction:column; gap:8px; max-width: 380px; }
   .toast{
-    background: var(--red-bg);
-    border: 1px solid var(--red);
-    color: #ffcfc2;
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 12.5px;
-    display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
-    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    background: var(--hot-soft); border: 1px solid var(--hot); color: #ffcfc2; border-radius: 8px;
+    padding: 10px 12px; font-size: 12.5px; display:flex; justify-content:space-between; gap:10px;
+    align-items:flex-start; box-shadow: 0 4px 16px rgba(0,0,0,.4);
   }
   .toast button{ background:none; border:none; color:#ffcfc2; font-size:14px; line-height:1; padding:0 2px; }
 
   /* ---------- chips ---------- */
   .chip{
-    display:inline-flex; align-items:center; gap:4px;
-    border-radius: 100px; padding: 2px 9px; font-size: 11px; font-weight:600;
-    border: 1px solid transparent; white-space: nowrap;
+    display:inline-flex; align-items:center; gap:4px; border-radius:100px; padding:2px 9px;
+    font-size:11px; font-weight:600; border:1px solid transparent; white-space:nowrap;
   }
-  .chip-green{ background: var(--green-bg); color:#8fe0b3; border-color:#245c3d; }
-  .chip-amber{ background: var(--amber-bg); color:#f0cd85; border-color:#7a5c1e; }
-  .chip-red{ background: var(--red-bg); color:#ffb4a3; border-color:#7a3323; }
-  .chip-neutral{ background: var(--neutral-bg); color: var(--text-dim); border-color: var(--border); }
+  .chip-green{ background: var(--ok-soft); color:#8fe0b3; border-color:rgba(62,207,142,.4); }
+  .chip-amber{ background: var(--warn-soft); color:#f0cd85; border-color:rgba(230,180,85,.4); }
+  .chip-red{ background: var(--hot-soft); color:#ffb4a3; border-color:rgba(255,109,109,.4); }
+  .chip-neutral{ background: var(--panel-2); color: var(--ink-dim); border-color: var(--line); }
 
   /* ---------- cards / lists ---------- */
-  .card{
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 14px;
-  }
+  .card{ background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
   .card h3{ font-size:14px; }
-  .section-title{ font-size:12px; text-transform:uppercase; letter-spacing:.05em; color: var(--text-faint); margin: 4px 0 8px; }
+  .section-title{ font-size:12px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-faint); margin: 4px 0 8px; }
   .scroll-x{ overflow-x:auto; max-width:100%; }
   table{ border-collapse: collapse; width:100%; font-size:12.5px; }
-  th, td{ text-align:left; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; }
-  th{ color: var(--text-faint); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  th, td{ text-align:left; padding: 7px 10px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  th{ color: var(--ink-faint); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
   td.wrap{ white-space: normal; }
+  .view-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin: 18px 0 16px; flex-wrap:wrap; }
+  .view-header h2{ font-size: 18px; font-family: var(--display); letter-spacing: .04em; }
+  .view-sub{ color: var(--ink-faint); font-size: 12.5px; margin-top:3px; }
 
   /* ---------- board ---------- */
   .board-layout{ display:flex; gap:18px; align-items:flex-start; }
-  .board-list{ width: 340px; flex: none; display:flex; flex-direction:column; gap:8px; }
+  .board-list{ width: 320px; flex: none; display:flex; flex-direction:column; gap:8px; }
   .board-detail{ flex:1; min-width:0; }
   .filters{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
   .filter-btn{
-    background: var(--bg-raised-2); border:1px solid var(--border); border-radius: 100px;
-    padding: 4px 11px; font-size: 11.5px; color: var(--text-dim);
+    background: var(--panel-2); border:1px solid var(--line); border-radius: 100px;
+    padding: 4px 11px; font-size: 11.5px; color: var(--ink-dim);
   }
-  .filter-btn:hover{ background: var(--bg-hover); }
-  .filter-btn.active{ background: var(--accent-bg); border-color: var(--accent-dim); color: var(--accent-text); }
+  .filter-btn:hover{ background: var(--panel-3); }
+  .filter-btn.active{ background: var(--accent-soft); border-color: var(--accent-dim); color: var(--accent-bright); }
   .item-card{
-    background: var(--bg-raised); border:1px solid var(--border); border-radius:8px;
+    background: var(--panel); border:1px solid var(--line-soft); border-radius:8px;
     padding: 11px 12px; cursor:pointer; text-align:left; width:100%;
   }
   .item-card:hover{ border-color: var(--accent-dim); }
-  .item-card.selected{ border-color: var(--accent); background: var(--bg-raised-2); }
+  .item-card.selected{ border-color: var(--accent); background: var(--panel-2); }
   .item-card .item-title{ font-weight:600; font-size:13px; margin-bottom:4px; }
-  .item-card .item-meta{ display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-faint); }
+  .item-card .item-meta{ display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--ink-faint); }
   .waiting-badge{
     display:inline-block; width:7px; height:7px; border-radius:50%; background: var(--accent);
     box-shadow: 0 0 6px var(--accent); margin-right:5px;
@@ -278,118 +271,287 @@
     width: 26px; height: 26px; border-radius:50%; flex:none;
     display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;
   }
-  .thread-entry.owner .thread-avatar{ background: var(--accent-bg); color: var(--owner); border:1px solid var(--accent-dim); }
-  .thread-entry.agent .thread-avatar{ background: #122335; color: var(--agent); border:1px solid #2a4a6b; }
-  .thread-entry.platform .thread-avatar{ background: var(--neutral-bg); color: var(--platform); border:1px solid var(--border); }
+  .thread-entry.owner .thread-avatar{ background: var(--accent-soft); color: var(--accent-bright); border:1px solid var(--accent-dim); }
+  .thread-entry.agent .thread-avatar{ background: hsl(var(--hue, 200) 45% 16%); color: hsl(var(--hue, 200) 62% 74%); border:1px solid hsl(var(--hue, 200) 45% 38%); }
+  .thread-entry.system .thread-avatar, .thread-entry.platform .thread-avatar{ background: var(--panel-2); color: var(--ink-faint); border:1px solid var(--line); }
   .thread-body{ flex:1; min-width:0; }
   .thread-head{ display:flex; gap:8px; align-items:baseline; font-size:12px; margin-bottom:2px; flex-wrap:wrap; }
   .thread-who{ font-weight:600; }
   .thread-role{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; padding:1px 6px; border-radius:100px; }
-  .thread-entry.owner .thread-role{ background: var(--accent-bg); color: var(--owner); }
-  .thread-entry.agent .thread-role{ background: #122335; color: var(--agent); }
-  .thread-entry.platform .thread-role{ background: var(--neutral-bg); color: var(--platform); }
-  .thread-time{ color: var(--text-faint); font-size:11px; margin-left:auto; }
-  .thread-text{ font-size: 13px; color: var(--text); }
-  .thread-kind{ font-size:11px; color: var(--text-faint); margin-top:2px; }
+  .thread-entry.owner .thread-role{ background: var(--accent-soft); color: var(--accent-bright); }
+  .thread-entry.agent .thread-role{ background: hsl(var(--hue, 200) 45% 16%); color: hsl(var(--hue, 200) 62% 74%); }
+  .thread-entry.system .thread-role, .thread-entry.platform .thread-role{ background: var(--panel-2); color: var(--ink-faint); }
+  .thread-time{ color: var(--ink-faint); font-size:11px; margin-left:auto; }
+  .thread-text{ font-size: 13px; color: var(--ink); }
+  .thread-kind{ font-size:11px; color: var(--ink-faint); margin-top:2px; }
 
   .scope-beat{
     border: 1.5px solid var(--accent-dim);
-    background: linear-gradient(180deg, var(--accent-bg), var(--bg-raised-2));
-    border-radius: 10px;
-    padding: 14px;
-    margin: 12px 0;
+    background: linear-gradient(180deg, var(--accent-soft), var(--panel-2));
+    border-radius: 10px; padding: 14px; margin: 12px 0;
   }
-  .scope-beat .scope-label{ font-size: 16px; font-weight:700; color: var(--accent-text); }
-  .scope-beat .scope-basis{ font-size:12.5px; color: var(--text-dim); margin-top:4px; }
+  .scope-beat .scope-label{ font-size: 16px; font-weight:700; color: var(--accent-bright); }
+  .scope-beat .scope-basis{ font-size:12.5px; color: var(--ink-dim); margin-top:4px; }
   .scope-overrule{
-    margin-top: 10px;
-    background: var(--red-bg);
-    border: 1px solid var(--red);
-    border-radius: 8px;
-    padding: 9px 11px;
-    font-size: 12.5px;
-    color: #ffcdbf;
+    margin-top: 10px; background: var(--hot-soft); border: 1px solid var(--hot);
+    border-radius: 8px; padding: 9px 11px; font-size: 12.5px; color: #ffcdbf;
   }
   .scope-overrule b{ color: #ffb4a3; }
 
   .kv{ display:grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; margin: 8px 0; }
-  .kv dt{ color: var(--text-faint); }
+  .kv dt{ color: var(--ink-faint); }
   .kv dd{ margin:0; }
 
   .form-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .form-grid .full{ grid-column: 1 / -1; }
   .field{ margin-bottom: 4px; }
 
-  .empty-state{ color: var(--text-faint); font-size:13px; padding: 24px 0; text-align:center; }
+  .empty-state{ color: var(--ink-faint); font-size:13px; padding: 24px 0; text-align:center; }
 
   .answer-card{
-    background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px;
     padding: 13px 14px; margin-bottom: 10px; cursor:pointer;
   }
   .answer-card:hover{ border-color: var(--accent-dim); }
   .answer-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .answer-value{ font-size: 16px; font-weight:700; margin: 6px 0 4px; }
-  .answer-meta{ font-size:11.5px; color: var(--text-faint); }
+  .answer-meta{ font-size:11.5px; color: var(--ink-faint); }
   .conflict-banner{
-    background: var(--amber-bg); border:1px solid var(--amber); color:#f6dca3;
+    background: var(--warn-soft); border:1px solid var(--warn); color:#f6dca3;
     border-radius:8px; padding: 11px 13px; margin-bottom:14px; font-size:13px;
   }
   .unverified-flag{
-    background: var(--red-bg); border:1px solid var(--red); color:#ffcdbf;
+    background: var(--hot-soft); border:1px solid var(--hot); color:#ffcdbf;
     border-radius:6px; padding:6px 9px; font-size:12px; margin-top:8px;
   }
 
   .refusal-card{
-    background: var(--red-bg); border:1px solid var(--red); border-radius:8px;
+    background: var(--hot-soft); border:1px solid var(--hot); border-radius:8px;
     padding: 11px 13px; font-size: 13px; color:#ffcdbf; margin-top: 10px;
   }
   .refusal-stage{ font-family: var(--mono); font-size:11px; color:#ffb4a3; }
-  .approval-box{
-    background: var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px; margin-top:8px;
-  }
+  .approval-box{ background: var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; margin-top:8px; }
 
-  .connection-box{
-    background: var(--bg); border:1px solid var(--border-soft); border-radius:8px; padding:12px;
-    position:relative;
-  }
+  .connection-box{ background: var(--bg); border:1px solid var(--line-soft); border-radius:8px; padding:12px; position:relative; }
   .copy-btn{ position:absolute; top:8px; right:8px; }
 
-  /* ---------- board: queues + status columns ---------- */
-  .queue-row{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .queue-row{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
   .queue-card{
-    background: var(--bg-raised-2); border:1px solid var(--border); border-radius:10px;
+    background: var(--panel-2); border:1px solid var(--line); border-radius:10px;
     padding: 12px 18px; text-align:left; min-width:190px;
   }
   .queue-card:hover{ border-color: var(--accent-dim); }
-  .queue-card.active{ border-color: var(--accent); background: var(--accent-bg); }
+  .queue-card.active{ border-color: var(--accent); background: var(--accent-soft); }
   .queue-card .queue-count{ font-size:22px; font-weight:700; line-height:1.2; }
-  .queue-card .queue-label{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .queue-card .queue-label{ font-size:12px; color:var(--ink-dim); margin-top:2px; }
 
   .board-columns{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; width:100%; }
   .board-column{
-    background: var(--bg-raised); border:1px solid var(--border); border-radius:10px;
+    background: var(--panel); border:1px solid var(--line-soft); border-radius:10px;
     width: 270px; flex: none; display:flex; flex-direction:column; max-height: 66vh;
   }
   .board-column-head{
-    padding: 9px 12px; border-bottom:1px solid var(--border-soft); font-weight:600; font-size:12.5px;
+    padding: 9px 12px; border-bottom:1px solid var(--line-soft); font-weight:600; font-size:12.5px;
     display:flex; justify-content:space-between; align-items:center; flex:none;
   }
   .board-column-body{ overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .badge-count{
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1px 7px; font-size: 11px; color: var(--ink-dim);
+  }
 
-  /* the system role reuses the platform look: neutral, automatic, not a person */
-  .thread-entry.system .thread-avatar{ background: var(--neutral-bg); color: var(--platform); border:1px solid var(--border); }
-  .thread-entry.system .thread-role{ background: var(--neutral-bg); color: var(--platform); }
+  /* ---------- org view ---------- */
+  .org-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:14px; }
+  .org-card{ background: var(--panel); border:1px solid var(--line-soft); border-radius:12px; padding:14px; }
+  .org-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line-soft); gap:10px; }
+  .org-row:last-child{ border-bottom:none; }
+  .org-name{ font-weight:600; font-size:13px; }
+  .org-role{ font-size:11px; color:var(--ink-faint); margin-top:2px; }
 
-  @media (max-width: 900px){
-    #app{ flex-direction: column; }
-    #rail{ width:100%; height:auto; position:static; flex-direction:row; flex-wrap:wrap; align-items:center; }
-    .identity-card, .counts-grid, .privacy-note, nav.views{ display:none; }
-    .rail-footer{ margin-left:auto; }
-    #main{ padding: 16px; }
+  /* ---------- deck (ported from Deck.tsx / globals.css) ---------- */
+  .deck{
+    display:grid; grid-template-columns: minmax(210px,290px) minmax(320px,1fr) minmax(220px,300px);
+    gap:16px; align-items:start; padding: 18px 0 8px;
+  }
+  .deck-side{ display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .deck-panel{
+    background: rgba(15,22,38,.72); backdrop-filter: blur(8px);
+    border: 1px solid var(--line-soft); border-radius: 12px; padding: 13px 14px; min-width:0; overflow:hidden;
+  }
+  .deck-panel h3{ margin:0 0 10px; font-size:10.5px; font-weight:650; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
+  .deck-nums{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .deck-nums > div{ display:flex; align-items:baseline; gap:7px; }
+  .deck-nums b{ font-family: var(--mono); font-size:19px; font-weight:600; font-variant-numeric: tabular-nums; }
+  .deck-nums span{ font-size:10.5px; color:var(--ink-faint); }
+  .deck-nums .hot b{ color: var(--hot); }
+  .deck-nums .amber b{ color: var(--accent-bright); }
+  .deck-dot{ flex:0 0 auto; width:7px; height:7px; border-radius:2px; background: hsl(var(--hue) 62% 58%); }
+
+  .deck-signal{
+    --hue: 180; display:block; width:100%; max-width:100%; min-width:0; overflow:hidden; text-align:left;
+    background:transparent; border:none; border-bottom:1px solid var(--line-soft); padding:8px 2px;
+    transition: background .15s ease;
+  }
+  .deck-signal:last-of-type{ border-bottom:none; }
+  .deck-signal:hover{ background: rgba(233,237,246,.04); }
+  .deck-signal-top{ display:flex; align-items:center; gap:7px; font-size:10px; color:var(--ink-faint); }
+  .deck-signal-top b{ font-weight:600; color:var(--ink-dim); }
+  .deck-signal-top em.ts{ margin-left:auto; font-size:9.5px; font-style:normal; }
+  .deck-signal-body{
+    display:block; margin:4px 0 0 14px; font-size:11.5px; line-height:1.45; color:var(--ink);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  .deck-agent{
+    --hue: 180; --period: 12s; display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+    background:transparent; border:none; border-bottom:1px solid var(--line-soft); padding:8px 2px;
+    transition: background .15s ease; animation: node-lift var(--period) linear infinite; animation-delay: var(--flare, 0s);
+  }
+  .deck-agent:last-of-type{ border-bottom:none; }
+  .deck-agent:hover{ background: rgba(233,237,246,.04); }
+  .deck-agent-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+  .deck-agent-main b{ font-size:12px; font-weight:600; color:var(--ink); }
+  .deck-agent-main span{ font-size:10px; color:var(--ink-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .deck-agent-state{ flex:0 0 auto; font-style:normal; font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .deck-agent-state.live{ color: hsl(var(--hue) 55% 68%); }
+  .deck-agent-state.amber{ color: var(--accent-bright); }
+
+  .deck-group + .deck-group{ margin-top:9px; }
+  .deck-group-name{
+    display:flex; align-items:center; gap:6px; margin:0 0 2px; padding-top:9px; border-top:1px solid var(--line-soft);
+    font-family: var(--mono); font-size:8.5px; font-weight:600; letter-spacing:.16em; text-transform:uppercase;
+    color: hsl(var(--hue) 40% 72%);
+  }
+  .deck-group:first-of-type .deck-group-name{ border-top:none; padding-top:0; }
+  .deck-group-name i{ flex:0 0 auto; width:5px; height:5px; border-radius:1px; background: hsl(var(--hue) 62% 58%); box-shadow: 0 0 6px hsl(var(--hue) 62% 58% / .7); }
+  .deck-group .deck-agent:last-of-type{ border-bottom:none; }
+
+  .deck-stage{
+    position:relative; width:100%; max-width: min(74vh, 760px); aspect-ratio:1; margin:0 auto; justify-self:center;
+    background: radial-gradient(circle at 50% 50%, rgba(240,164,31,.045), rgba(15,22,38,.25) 45%, transparent 72%);
+    border-radius:50%;
+  }
+  .deck-space{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .deck-field{
+    position:absolute; top:-2px; left:50%; transform:translateX(-50%); z-index:3; display:flex; align-items:center; gap:8px;
+    margin:0; padding:6px 14px; border-radius:999px; border:1px solid var(--line-soft); background: rgba(15,22,38,.8);
+    backdrop-filter: blur(8px); font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    color: var(--ink-dim); white-space:nowrap;
+  }
+  .deck-field i{ width:7px; height:7px; border-radius:50%; }
+  .deck-field.ok i{ background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .deck-field.amber i{ background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: signal 2.4s ease-in-out infinite; }
+  .deck-field.hot i{ background: var(--hot); box-shadow: 0 0 8px var(--hot); animation: signal 1.6s ease-in-out infinite; }
+
+  .deck-ring{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:1px solid rgba(39,50,79,.85); pointer-events:none; }
+  .deck-ring.r1{ width:34%; height:34%; }
+  .deck-ring.r2{ width:60%; height:60%; }
+  .deck-ring.r3{ width:86%; height:86%; border-color: rgba(39,50,79,.55); }
+  .deck-ring.spin{ width:73%; height:73%; border:1px dashed rgba(240,164,31,.2); animation: deck-spin 48s linear infinite; }
+  @keyframes deck-spin{ to{ transform: translate(-50%,-50%) rotate(360deg); } }
+
+  .deck-sector{
+    position:absolute; left:50%; top:50%; width:88%; height:88%; transform:translate(-50%,-50%); border-radius:50%;
+    pointer-events:none; z-index:0;
+    background: conic-gradient(from calc(var(--a0) * 1deg),
+      hsl(var(--hue) 64% 56% / .22), hsl(var(--hue) 64% 56% / .07) calc(var(--span) * 0.5deg),
+      hsl(var(--hue) 64% 56% / .18) calc(var(--span) * 1deg), transparent 0);
+    -webkit-mask-image: radial-gradient(circle, transparent 47%, #000 57%, #000 95%, transparent 100%);
+    mask-image: radial-gradient(circle, transparent 47%, #000 57%, #000 95%, transparent 100%);
+    opacity:.6; animation: sector-wash var(--period, 12s) linear infinite; animation-delay: var(--flare, 0s);
+  }
+  @keyframes sector-wash{ 0%,100%{opacity:.6;} 5%{opacity:1;} 26%{opacity:.6;} }
+
+  .deck-sector-name{
+    position:absolute; transform:translate(-50%,-50%); z-index:2; padding:3px 9px; border-radius:999px;
+    border:1px solid hsl(var(--hue) 45% 52% / .35); background: hsl(var(--hue) 42% 11% / .78); backdrop-filter: blur(4px);
+    font-family: var(--mono); font-size:8.5px; letter-spacing:.16em; text-transform:uppercase; color: hsl(var(--hue) 46% 78%);
+    white-space:nowrap; pointer-events:none; animation: sector-name-wash var(--period, 12s) linear infinite; animation-delay: var(--flare, 0s);
+  }
+  @keyframes sector-name-wash{
+    0%,100%{ border-color: hsl(var(--hue) 45% 52% / .35); box-shadow:none; }
+    5%{ border-color: hsl(var(--hue) 62% 64% / .9); box-shadow: 0 0 14px hsl(var(--hue) 62% 55% / .32); }
+    26%{ border-color: hsl(var(--hue) 45% 52% / .35); box-shadow:none; }
+  }
+
+  .deck-lines{ position:absolute; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; overflow:visible; }
+  .deck-edge{ stroke: rgba(46,59,92,.85); stroke-width:.16; stroke-dasharray: 1 2.2; }
+  .deck-link{ stroke: hsl(var(--hue) 60% 62% / .55); stroke-width:.3; stroke-dasharray: 1.4 1.3; animation: link-flow 2.6s linear infinite; }
+  @keyframes link-flow{ to{ stroke-dashoffset: -5.4; } }
+
+  .deck-sweep{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:88%; height:88%; border-radius:50%;
+    background: conic-gradient(from 0deg, rgba(240,164,31,.2), rgba(240,164,31,.07) 26deg, rgba(240,164,31,.02) 52deg, transparent 76deg);
+    -webkit-mask-image: radial-gradient(circle, transparent 26%, #000 40%);
+    mask-image: radial-gradient(circle, transparent 26%, #000 40%);
+    animation: deck-spin var(--period, 12s) linear infinite; pointer-events:none; z-index:1;
+  }
+
+  .deck-node{
+    position:absolute; transform:translate(-50%,-50%); z-index:2; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:transparent; border:none; padding:6px; color:var(--ink);
+    animation: node-lift var(--period, 12s) linear infinite; animation-delay: var(--flare, 0s);
+  }
+  .deck-node-dot{
+    position:relative; width:10px; height:10px; border-radius:3px; background: hsl(var(--hue) 62% 58%);
+    box-shadow: 0 0 10px hsl(var(--hue) 62% 58% / .7); transition: transform .15s ease;
+  }
+  .deck-node-dot::after{
+    content:""; position:absolute; inset:-7px; border-radius:50%;
+    background: radial-gradient(circle, hsl(var(--hue) 72% 64% / .9), hsl(var(--hue) 72% 64% / .25) 45%, transparent 72%);
+    opacity:0; animation: dot-flare var(--period, 12s) linear infinite; animation-delay: var(--flare, 0s); pointer-events:none;
+  }
+  @keyframes dot-flare{
+    0%{opacity:0; transform:scale(.5);} 4%{opacity:1; transform:scale(1.25);}
+    20%{opacity:0; transform:scale(.5);} 100%{opacity:0; transform:scale(.5);}
+  }
+  @keyframes node-lift{ 0%,100%{ filter:brightness(1);} 4%{ filter:brightness(1.85);} 22%{ filter:brightness(1);} }
+  .deck-node.busy .deck-node-dot{ animation: node-pulse 2.6s ease-in-out infinite; }
+  @keyframes node-pulse{ 0%,100%{ box-shadow: 0 0 10px hsl(var(--hue) 62% 58% / .7);} 50%{ box-shadow: 0 0 16px hsl(var(--hue) 62% 58% / 1);} }
+  .deck-node:hover .deck-node-dot{ transform: scale(1.35); }
+  .deck-node-name{ font-size:11px; font-weight:600; white-space:nowrap; text-shadow: 0 1px 5px rgba(8,12,22,.95), 0 0 2px rgba(8,12,22,.9); transition: color .15s ease; }
+  .deck-node:hover .deck-node-name{ color: hsl(var(--hue) 60% 76%); }
+  .deck-node-sub{ font-family: var(--mono); font-size:9px; color: var(--ink-faint); white-space:nowrap; text-shadow: 0 1px 5px rgba(8,12,22,.95); font-variant-numeric: tabular-nums; }
+
+  .deck-core{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2; width:26%; aspect-ratio:1; border-radius:50%;
+    border: 1px solid rgba(240,164,31,.35);
+    background: radial-gradient(circle at 50% 42%, rgba(240,164,31,.16), rgba(15,22,38,.9) 75%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink);
+    transition: border-color .15s ease;
+  }
+  .deck-core:hover{ border-color: var(--accent); }
+  .deck-core-glow{ position:absolute; inset:-1px; border-radius:50%; pointer-events:none; animation: core-breathe 4.5s ease-in-out infinite; }
+  @keyframes core-breathe{ 0%,100%{ box-shadow: 0 0 0 0 rgba(240,164,31,.22);} 50%{ box-shadow: 0 0 34px 6px rgba(240,164,31,.1);} }
+  .deck-core-ring{ position:absolute; inset:-9px; border-radius:50%; border:1px dashed rgba(240,164,31,.45); pointer-events:none; animation: core-ring-spin 22s linear infinite; }
+  @keyframes core-ring-spin{ to{ transform: rotate(-360deg); } }
+  .deck-core-name{ font-family: var(--display); font-size:15px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  .deck-core-sub{ font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color: var(--accent-bright); }
+  .deck-core-load{ margin-top:3px; font-family: var(--mono); font-size:9.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 880px){
+    .deck{ grid-template-columns: 1fr; }
+    .deck-stage{ order:-1; max-width: min(92vw, 620px); }
+    .deck-sector-name{ font-size:7.5px; padding:2px 6px; letter-spacing:.1em; }
+    .deck-node-name{ font-size:10.5px; }
+    .deck-side{ flex-direction:row; flex-wrap:wrap; }
+    .deck-side .deck-panel{ flex: 1 1 300px; }
     .board-layout{ flex-direction:column; }
     .board-list{ width:100%; }
     .board-column{ width:100%; max-height:50vh; }
     .form-grid{ grid-template-columns: 1fr; }
+  }
+
+  /* Motion is state, not decoration here: honour the user's reduced-motion
+     preference by dropping the sweep, the spin, the flares and the particle
+     field entirely rather than merely slowing them. */
+  @media (prefers-reduced-motion: reduce){
+    .top h1::before, .badge, .deck-field.amber i, .deck-field.hot i,
+    .deck-ring.spin, .deck-sweep, .deck-sector, .deck-sector-name,
+    .deck-node, .deck-node-dot::after, .deck-node.busy .deck-node-dot,
+    .deck-agent, .deck-link{
+      animation: none !important;
+    }
   }
 </style>
 </head>
@@ -407,12 +569,12 @@
     token: null,
     whoami: null,
     context: null,
-    view: 'board',
+    view: 'deck',
     board: {
-      items: [], waiting_on_you: [], waiting_on_agents: [], columns: {},
+      items: [], waiting_on_you: [], waiting_on_agents: [], columns: {}, revision: null,
       selectedId: null, detail: null, detailLoading: null,
-      queueFilter: null, historyOpen: false,
-      showArchived: false, archivedItems: [],
+      queueFilter: null, laneFilter: null, historyOpen: false,
+      archivedItems: [], archivedLoaded: false, archivedLoading: false,
     },
     consume: { kind: '', subject: '', agent: '', result: null, selectedOutput: null },
     catalog: { agent: '', items: [], invokeResult: null, invokeTarget: null, pendingApproval: null },
@@ -441,8 +603,26 @@
     return n;
   }
   const clear = (node) => { while (node.firstChild) node.removeChild(node.firstChild); };
+
+  // The board's last movement, read from the API. Falls back to the revision
+  // only when a board has never been written, where there is no time to show.
+  function reconciledAt(){
+    const at = state.board.updated_at || (state.context && state.context.updated_at);
+    if (at) {
+      try { return new Date(at).toLocaleString(); } catch (e) { return at; }
+    }
+    const rev = state.board.revision != null ? state.board.revision : null;
+    return rev != null ? 'rev ' + rev : 'not yet';
+  }
   const fmtTime = (iso) => { try { return new Date(iso).toLocaleString(); } catch(e){ return iso; } };
   const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(); } catch(e){ return iso; } };
+  const fmtShort = (iso) => { try { return new Date(iso).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch(e){ return iso; } };
+  const today = () => new Date().toISOString().slice(0, 10);
+  const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+  function reduceMotion(){
+    try { return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+    catch(e){ return false; }
+  }
 
   function showError(reason){
     const box = document.getElementById('errors');
@@ -557,13 +737,21 @@
       state.board.waiting_on_you = b.waiting_on_you;
       state.board.waiting_on_agents = b.waiting_on_agents;
       state.board.columns = b.columns;
+      state.board.revision = b.revision;
     }
     return b;
   }
 
+  // Archive is its own tab now: it loads on first entry, the same rule as the
+  // catalog above, rather than waiting for a "Archived" button that no longer
+  // exists in this shell.
   async function loadArchived(){
+    state.board.archivedLoading = true;
     const res = await api('/api/fleet/board/archived', { quiet: true });
+    state.board.archivedLoading = false;
+    state.board.archivedLoaded = true;
     if (res.ok) state.board.archivedItems = res.items;
+    renderShell();
     return res;
   }
 
@@ -600,19 +788,17 @@
   async function renderSignin(reason){
     const app = document.getElementById('app');
     clear(app);
-    const card = el('div', { class: 'signin-card' }, [
-      el('div', { class: 'brand', style: 'margin-bottom:16px' }, [
-        el('span', { class: 'brand-dot' }), el('span', { class: 'brand-name' }, ['Fleet Mission Control']),
-      ]),
-      el('h1', {}, ['Sign in']),
-      el('div', { class: 'signin-sub' }, ['Paste your fleet token, or load a demo token below.']),
+    const card = el('div', { class: 'gate-card' }, [
+      el('div', { class: 'gate-mark', 'aria-hidden': true }),
+      el('h1', {}, ['Fleet Mission Control']),
+      el('div', { class: 'gate-sub' }, ['Paste your fleet token, or load a demo token below.']),
     ]);
-    if (reason) card.appendChild(el('div', { class: 'signin-reason' }, [reason]));
+    if (reason) card.appendChild(el('div', { class: 'gate-err' }, [reason]));
 
     const input = el('input', { type: 'text', placeholder: 'ebt_...', 'aria-label': 'bearer token' });
-    const goBtn = el('button', { class: 'btn' }, ['Sign in']);
+    const goBtn = el('button', { type: 'button', class: 'btn' }, ['Sign in']);
     const form = el('div', { class: 'row', style: 'margin-top:6px' }, [input, goBtn]);
-    card.appendChild(el('div', { class: 'field' }, [el('label', { for: 'tok-input' }, ['Bearer token']), form]));
+    card.appendChild(el('div', { class: 'field' }, [el('label', {}, ['Bearer token']), form]));
 
     async function trySignIn(tok){
       if (!tok) return;
@@ -627,7 +813,7 @@
     goBtn.addEventListener('click', () => trySignIn(input.value.trim()));
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') trySignIn(input.value.trim()); });
 
-    const demoBtn = el('button', { class: 'btn-ghost', style: 'margin-top:16px; width:100%' }, ['Load demo tokens']);
+    const demoBtn = el('button', { type: 'button', class: 'ghost', style: 'margin-top:16px; width:100%' }, ['Load demo tokens']);
     const demoList = el('div', { class: 'demo-tokens' });
     demoBtn.addEventListener('click', async () => {
       demoBtn.disabled = true;
@@ -642,7 +828,7 @@
         const fleets = (data.tokens || []).filter((t) => t.kind === 'fleet');
         if (!fleets.length) { demoList.appendChild(el('div', { class: 'empty-state' }, ['no fleet tokens available'])); return; }
         fleets.forEach((t) => {
-          const btn = el('button', { class: 'demo-token-btn' }, [
+          const btn = el('button', { type: 'button', class: 'demo-token-btn' }, [
             el('span', {}, [t.name || t.employee]),
             el('span', { class: 'fleet-id' }, [t.fleet]),
           ]);
@@ -658,90 +844,106 @@
     card.appendChild(demoBtn);
     card.appendChild(demoList);
 
-    app.appendChild(el('div', { id: 'signin' }, [card]));
+    app.appendChild(el('main', { class: 'gate' }, [card]));
   }
 
-  /* ---------------- shell / rail ---------------- */
+  /* ---------------- shell / top / tabs ---------------- */
+  const TABS = [
+    ['deck', 'Command'],
+    ['board', 'Board'],
+    ['approvals', 'Approvals'],
+    ['archive', 'Archive'],
+    ['org', 'Org'],
+    ['consume', 'Ledger'],
+    ['catalog', 'Agents'],
+    ['access', 'Access'],
+    ['connection', 'Connection'],
+  ];
+
+  function ownerName(){
+    return (state.context && state.context.employee && state.context.employee.name) || 'Owner';
+  }
+
+  function openItems(){ return state.board.items || []; }
+  function shownItems(){
+    let items = openItems();
+    if (state.board.laneFilter) items = items.filter((i) => i.lane === state.board.laneFilter);
+    return items;
+  }
+
+  function statChip(n, label, tone){
+    return el('div', { class: 'stat' + (tone ? ' ' + tone : '') }, [
+      el('b', {}, [String(n)]),
+      el('span', {}, [label]),
+    ]);
+  }
+
+  function renderTop(){
+    const items = openItems();
+    const t = today();
+    const dueNow = items.filter((i) => i.due && i.due <= t).length;
+    const waiting = items.filter((i) => i.status === 'waiting').length;
+    const stale = items.filter((i) => i.touched && daysBetween(i.touched, t) >= 7).length;
+    const shown = shownItems().length;
+    const open = items.length;
+    const ctx = state.context;
+    const revision = state.board.revision != null ? state.board.revision : (ctx && ctx.revision);
+
+    const lockBtn = el('button', { class: 'ghost' }, ['Lock']);
+    lockBtn.addEventListener('click', () => signOut());
+
+    return el('header', { class: 'top' }, [
+      el('div', {}, [
+        el('h1', {}, ['Fleet Mission Control']),
+        // When the board last moved, not which revision it is on. A revision
+        // number tells a reader nothing about whether they are looking at
+        // something current.
+        el('p', { class: 'asof' }, [
+          'Reconciled ' + reconciledAt() + ' · ' + shown + ' shown of ' + open + ' open',
+        ]),
+      ]),
+      el('div', { class: 'top-stats' }, [
+        statChip(dueNow, 'dated, due now', dueNow ? 'hot' : ''),
+        statChip(waiting, 'ball elsewhere', ''),
+        statChip(stale, 'untouched 7d+', stale ? 'warn' : ''),
+        lockBtn,
+      ]),
+    ]);
+  }
+
+  function renderTabs(){
+    // The badge counts the same thing Approvals lists: a real proposal with an
+    // entry id, not every "waiting on you" reason (e.g. acknowledging a
+    // platform team decision has none).
+    const pendingCount = (state.board.waiting_on_you || []).filter((w) => w.entry).length;
+    return el('nav', { class: 'views' }, TABS.map(([id, label]) => {
+      const btn = el('button', { class: state.view === id ? 'on' : '' }, [label]);
+      if (id === 'approvals' && pendingCount > 0) btn.appendChild(el('em', { class: 'badge' }, [String(pendingCount)]));
+      btn.addEventListener('click', () => { state.view = id; renderShell(); });
+      return btn;
+    }));
+  }
+
   function renderShell(){
     const app = document.getElementById('app');
     clear(app);
-    const shell = el('div', { style: 'display:flex; width:100%' });
-    shell.appendChild(renderRail());
-    const main = el('main', { id: 'main' });
-    shell.appendChild(main);
-    app.appendChild(shell);
-    renderView(main);
-  }
-
-  function renderRail(){
-    const ctx = state.context;
-    const who = state.whoami && state.whoami.employee;
-    const fleet = ctx && ctx.fleet;
-    const rail = el('aside', { id: 'rail' });
-
-    rail.appendChild(el('div', { class: 'brand' }, [
-      el('span', { class: 'brand-dot' }), el('span', { class: 'brand-name' }, ['Fleet Mission Control']),
-    ]));
-
-    if (who) {
-      rail.appendChild(el('div', { class: 'identity-card' }, [
-        el('div', { class: 'identity-name' }, [who.name]),
-        el('div', { class: 'identity-title' }, [who.title || '']),
-        el('div', { class: 'identity-meta' }, [
-          el('div', {}, ['fleet ', el('code', {}, [fleet ? fleet.fleet : '?'])]),
-          el('div', {}, ['harness ', el('code', {}, [fleet ? fleet.harness : '?'])]),
-          el('div', {}, ['agents ', el('code', {}, [String(fleet ? fleet.agents.length : 0)])]),
-        ]),
-      ]));
-    }
-
-    if (ctx) {
-      const counts = ctx.board_counts || {};
-      const statusOrder = ctx.statuses ? Object.keys(ctx.statuses) : [];
-      const grid = el('div', { class: 'counts-grid' });
-      statusOrder.forEach((k) => {
-        if (!(k in counts)) return;
-        const label = (ctx.statuses[k] && ctx.statuses[k].name) || k;
-        grid.appendChild(el('div', {}, [el('b', {}, [String(counts[k])]), ' ' + label]));
-      });
-      rail.appendChild(grid);
-    }
-
-    const nav = el('nav', { class: 'views' });
-    const views = [
-      ['board', 'Board', ctx ? ctx.waiting_on_you : 0],
-      ['consume', 'Consume', null],
-      ['catalog', 'Enterprise agents', null],
-      ['access', 'Access & grants', null],
-      ['connection', 'Connection', null],
-    ];
-    views.forEach(([id, label, badge]) => {
-      const btn = el('button', { class: 'view-btn' + (state.view === id ? ' active' : '') }, [
-        el('span', {}, [label]),
-      ]);
-      if (badge) btn.appendChild(el('span', { class: 'badge-count hot' }, [String(badge)]));
-      btn.addEventListener('click', () => { state.view = id; renderShell(); });
-      nav.appendChild(btn);
-    });
-    rail.appendChild(nav);
-
-    if (ctx && ctx.note) {
-      rail.appendChild(el('div', { class: 'privacy-note' }, [ctx.note]));
-    }
-
-    const footer = el('div', { class: 'rail-footer' }, [
-      el('button', { class: 'btn-ghost btn-sm' }, ['Switch employee / sign out']),
-    ]);
-    footer.firstChild.addEventListener('click', () => signOut());
-    rail.appendChild(footer);
-
-    return rail;
+    const main = el('main', { class: 'board' });
+    main.appendChild(renderTop());
+    main.appendChild(renderTabs());
+    const viewport = el('div', { class: 'viewport' });
+    main.appendChild(viewport);
+    app.appendChild(main);
+    renderView(viewport);
   }
 
   /* ---------------- view router ---------------- */
   function renderView(main){
     clear(main);
+    if (state.view === 'deck') return renderDeckView(main);
+    if (state.view === 'org') return renderOrgView(main);
     if (state.view === 'board') return renderBoardView(main);
+    if (state.view === 'approvals') return renderApprovalsView(main);
+    if (state.view === 'archive') return renderArchivedView(main);
     if (state.view === 'consume') return renderConsumeView(main);
     if (state.view === 'catalog') return renderCatalogView(main);
     if (state.view === 'access') return renderAccessView(main);
@@ -774,6 +976,385 @@
     return el('span', { class: 'chip ' + (b ? (trueCls || 'chip-green') : 'chip-neutral') }, [b ? trueLabel : falseLabel]);
   }
 
+  /* ================= lanes / sectors / hue ================= */
+  //
+  // This repo's lane registry (F.board.laneRegistry()) carries only {name,
+  // role} per lane: no clusters, no hues. The real Mission Control groups its
+  // fleet into hand-authored spheres of influence with a fixed hue each; here
+  // both are derived at runtime. A lane that does carry a `cluster` field is
+  // grouped by it (a future registry could add one); otherwise every agent
+  // lane falls into one sector, tagged "Fleet". The owner's own lane ("owner")
+  // is never a sector member - it is the centre, not a node on the ring.
+
+  function hashHue(str){
+    let h = 2166136261;
+    const s = String(str || '');
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return Math.abs(h) % 360;
+  }
+  function titleCase(s){
+    return String(s || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  function agentLaneIds(){
+    const lanes = (state.context && state.context.lanes) || {};
+    return Object.keys(lanes).filter((id) => id !== 'owner');
+  }
+  function buildSectors(){
+    const lanes = (state.context && state.context.lanes) || {};
+    const ids = agentLaneIds();
+    const order = [];
+    const groups = new Map();
+    ids.forEach((id) => {
+      const meta = lanes[id] || {};
+      const key = meta.cluster || '__fleet__';
+      if (!groups.has(key)) { groups.set(key, []); order.push(key); }
+      groups.get(key).push(id);
+    });
+    return order.map((key) => {
+      if (key === '__fleet__') {
+        return { id: 'fleet', tag: 'Fleet', name: 'Fleet', blurb: 'Every lane in this fleet.', hue: hashHue('fleet-sector'), members: groups.get(key) };
+      }
+      return { id: key, tag: titleCase(key), name: titleCase(key), blurb: 'Lanes grouped under ' + titleCase(key) + '.', hue: hashHue(key), members: groups.get(key) };
+    });
+  }
+
+  /* --- deck geometry (ported from Deck.tsx) --- */
+  const PERIOD = 12;
+  const GAP = 6;
+  const rad = (a) => (a * Math.PI) / 180;
+  const roundV = (v) => Math.round(v * 1000) / 1000;
+  const pxPos = (a, r) => roundV(50 + r * Math.cos(rad(a)) * 50);
+  const pyPos = (a, r) => roundV(50 + r * Math.sin(rad(a)) * 50);
+  const delayFor = (a) => roundV((((((a + 90) % 360) + 360) % 360) / 360) * PERIOD);
+
+  function layoutDeck(sectors){
+    const heads = sectors.reduce((n, c) => n + c.members.length, 0);
+    if (!heads) return { sectors: [], nodes: [] };
+    const per = (360 - GAP * sectors.length) / heads;
+    let cursor = -90 + GAP / 2;
+    const sectorPos = sectors.map((c) => {
+      const span = c.members.length * per;
+      const a0 = cursor;
+      cursor += span + GAP;
+      return { c, a0, span, mid: a0 + span / 2 };
+    });
+    const nodes = sectorPos.flatMap(({ c, a0, span }) => c.members.map((lane, i) => ({
+      lane,
+      cluster: c,
+      a: a0 + (i + 0.5) * (span / c.members.length),
+      r: i % 2 === 0 ? 0.68 : 0.58,
+    })));
+    return { sectors: sectorPos, nodes };
+  }
+
+  function laneStateMap(){
+    const items = state.board.items || [];
+    const byId = {};
+    items.forEach((i) => { byId[i.id] = i; });
+    // Only a real proposal (an entry id) counts as "for you" here - the same
+    // filter Approvals and its tab badge use. "Waiting on you" also covers
+    // acknowledging a platform team decision, which is not a verdict a lane
+    // is owed credit or blame for.
+    const wYou = (state.board.waiting_on_you || []).filter((w) => w.entry);
+    const wAgents = state.board.waiting_on_agents || [];
+    const forYou = {};
+    wYou.forEach((w) => {
+      const it = byId[w.item];
+      const lane = (it && it.lane) || w.lane;
+      if (lane) forYou[lane] = (forYou[lane] || 0) + 1;
+    });
+    const asked = {};
+    wAgents.forEach((w) => {
+      const it = byId[w.item];
+      const lane = w.lane || (it && it.lane);
+      if (lane) asked[lane] = (asked[lane] || 0) + 1;
+    });
+    return function laneState(laneId){
+      const carrying = items.filter((i) => i.lane === laneId).length;
+      const yours = forYou[laneId] || 0;
+      const working = asked[laneId] || 0;
+      if (yours) return { cls: 'amber', word: yours + ' for you', carrying };
+      if (working) return { cls: 'live', word: 'working · ' + working, carrying };
+      if (carrying) return { cls: 'live', word: carrying + ' open', carrying };
+      return { cls: '', word: 'idle', carrying };
+    };
+  }
+
+  const VERB = { instruction: 'asked', proposal: 'proposed', note: 'logged', report: 'reported back', decision: 'decided' };
+
+  function openLaneInBoard(lane){
+    state.board.laneFilter = lane;
+    state.view = 'board';
+    renderShell();
+  }
+
+  function openItemFromDeck(id){
+    state.board.selectedId = id;
+    state.board.detail = null;
+    state.board.historyOpen = false;
+    state.view = 'board';
+    renderShell();
+  }
+
+  /* ---- ambient particle drift (skipped entirely under reduced motion) ---- */
+  function makeParticlesCanvas(){
+    const canvas = document.createElement('canvas');
+    canvas.className = 'deck-space';
+    canvas.setAttribute('aria-hidden', 'true');
+    requestAnimationFrame(() => startParticles(canvas));
+    return canvas;
+  }
+  function startParticles(canvas){
+    const ctx = canvas.getContext('2d');
+    if (!ctx || !canvas.isConnected) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w = 0, h = 0;
+    const fit = () => {
+      const box = canvas.getBoundingClientRect();
+      w = box.width; h = box.height;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    fit();
+    const N = 70;
+    const dots = Array.from({ length: N }, (_, i) => ({
+      x: Math.random(), y: Math.random(), s: 0.6 + Math.random() * 1.4,
+      vx: (Math.random() - 0.5) * 0.00016, vy: (Math.random() - 0.5) * 0.00016,
+      p: Math.random() * Math.PI * 2, amber: i % 5 === 0,
+    }));
+    let raf = 0;
+    const ro = new ResizeObserver(fit);
+    ro.observe(canvas);
+    const draw = (t) => {
+      if (!canvas.isConnected) { cancelAnimationFrame(raf); ro.disconnect(); return; }
+      ctx.clearRect(0, 0, w, h);
+      dots.forEach((d) => {
+        d.x = (d.x + d.vx + 1) % 1; d.y = (d.y + d.vy + 1) % 1;
+        const tw = 0.35 + 0.3 * Math.sin(t / 1600 + d.p);
+        ctx.beginPath();
+        ctx.arc(d.x * w, d.y * h, d.s, 0, Math.PI * 2);
+        ctx.fillStyle = d.amber ? 'rgba(240,164,31,' + (tw * 0.8) + ')' : 'rgba(155,166,191,' + (tw * 0.5) + ')';
+        ctx.fill();
+      });
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+  }
+
+  /* ================= COMMAND (deck) ================= */
+  function renderDeckView(main){
+    const ctx = state.context;
+    if (!ctx) { main.appendChild(el('div', { class: 'empty-state' }, ['loading'])); return; }
+    const items = state.board.items || [];
+    // Proposals awaiting a verdict. A returned platform decision is also on
+    // that list and is NOT awaiting a verdict, so it is counted separately and
+    // never folded into this number: two places on one screen disagreeing about
+    // the same thing is worse than either number alone.
+    const wYou = (state.board.waiting_on_you || []).filter((w) => w.entry);
+    const decided = (state.board.waiting_on_you || []).filter((w) => !w.entry);
+    const wAgents = state.board.waiting_on_agents || [];
+    const t = today();
+    const dueNow = items.filter((i) => i.due && i.due <= t).length;
+    const laneState = laneStateMap();
+    const sectors = buildSectors();
+    const { sectors: sectorPos, nodes } = layoutDeck(sectors);
+    const nodeAt = {};
+    nodes.forEach((n) => { nodeAt[n.lane] = n; });
+    const motionOff = reduceMotion();
+
+    const field = dueNow > 0
+      ? { tone: 'hot', text: 'pressure · ' + dueNow + ' due now' }
+      : wYou.length > 0
+        ? { tone: 'amber', text: wYou.length + ' awaiting your call' }
+        : { tone: 'ok', text: 'all lanes steady' };
+
+    /* ---- left: Situation + Live signals ---- */
+    const situationPanel = el('div', { class: 'deck-panel' }, [
+      el('h3', {}, ['Situation']),
+      el('div', { class: 'deck-nums' }, [
+        el('div', { class: dueNow ? 'hot' : '' }, [el('b', {}, [String(dueNow)]), el('span', {}, ['due now'])]),
+        el('div', { class: wYou.length ? 'amber' : '' }, [el('b', {}, [String(wYou.length)]), el('span', {}, ['awaiting you'])]),
+        el('div', {}, [el('b', {}, [String(wAgents.length)]), el('span', {}, ['with agents'])]),
+        el('div', {}, [el('b', {}, [String(items.length)]), el('span', {}, ['open'])]),
+        decided.length
+          ? el('div', { class: 'amber' }, [el('b', {}, [String(decided.length)]), el('span', {}, ['decided, to read'])])
+          : null,
+      ]),
+    ]);
+
+    const signalsRaw = [];
+    items.forEach((it) => { (it.thread || []).forEach((e) => { if (e.kind !== 'change') signalsRaw.push({ it, e }); }); });
+    signalsRaw.sort((a, b) => (a.e.at < b.e.at ? 1 : -1));
+    const signals = signalsRaw.slice(0, 8);
+
+    const signalsPanel = el('div', { class: 'deck-panel deck-signals' }, [el('h3', {}, ['Live signals'])]);
+    if (!signals.length) signalsPanel.appendChild(el('p', { class: 'hint' }, ['No thread activity yet.']));
+    signals.forEach(({ it, e }) => {
+      const hue = hashHue(it.lane);
+      const btn = el('button', { class: 'deck-signal', style: '--hue:' + hue, title: it.title }, [
+        el('span', { class: 'deck-signal-top' }, [
+          el('i', { class: 'deck-dot' }),
+          el('b', {}, [actorLabel(e.author) + ' ' + (VERB[e.kind] || e.kind)]),
+          el('em', { class: 'ts' }, [fmtShort(e.at)]),
+        ]),
+        el('span', { class: 'deck-signal-body' }, [e.body || it.title]),
+      ]);
+      btn.addEventListener('click', () => openItemFromDeck(it.id));
+      signalsPanel.appendChild(btn);
+    });
+
+    const leftAside = el('aside', { class: 'deck-side' }, [situationPanel, signalsPanel]);
+
+    /* ---- centre: the radial field ---- */
+    const stage = el('div', { class: 'deck-stage', style: motionOff ? '' : ('--period:' + PERIOD + 's') });
+    if (!motionOff) stage.appendChild(makeParticlesCanvas());
+    stage.appendChild(el('p', { class: 'deck-field ' + field.tone }, [el('i', {}), field.text]));
+
+    sectorPos.forEach(({ c, a0, span }) => {
+      stage.appendChild(el('div', {
+        class: 'deck-sector', 'aria-hidden': true,
+        style: '--hue:' + c.hue + ';--a0:' + roundV(a0 + 90) + ';--span:' + roundV(span) + ';--flare:' + delayFor(a0) + 's',
+      }));
+    });
+
+    stage.appendChild(el('div', { class: 'deck-ring r1' }));
+    stage.appendChild(el('div', { class: 'deck-ring r2' }));
+    stage.appendChild(el('div', { class: 'deck-ring r3' }));
+    stage.appendChild(el('div', { class: 'deck-ring spin' }));
+    stage.appendChild(el('div', { class: 'deck-sweep', 'aria-hidden': true }));
+
+    // Sector edges. There is no reporting-line data in this repo's lane
+    // registry (no equivalent of Deck.tsx's REPORTS_TO), so only the wedge
+    // boundaries are drawn - see the note in buildSectors() above.
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'deck-lines');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('aria-hidden', 'true');
+    sectorPos.forEach(({ a0, span }) => {
+      [a0, a0 + span].forEach((a) => {
+        const line = document.createElementNS(svgNS, 'line');
+        line.setAttribute('x1', String(pxPos(a, 0.42)));
+        line.setAttribute('y1', String(pyPos(a, 0.42)));
+        line.setAttribute('x2', String(pxPos(a, 0.9)));
+        line.setAttribute('y2', String(pyPos(a, 0.9)));
+        line.setAttribute('class', 'deck-edge');
+        svg.appendChild(line);
+      });
+    });
+    stage.appendChild(svg);
+
+    sectorPos.forEach(({ c, mid }) => {
+      const rl = 1 - 0.18 * Math.abs(Math.cos(rad(mid)));
+      stage.appendChild(el('span', {
+        class: 'deck-sector-name', title: c.name + ' - ' + c.blurb,
+        style: 'left:' + pxPos(mid, rl) + '%;top:' + pyPos(mid, rl) + '%;--hue:' + c.hue + ';--flare:' + delayFor(mid) + 's',
+      }, [c.tag]));
+    });
+
+    nodes.forEach(({ lane, a, r, cluster }) => {
+      const meta = ((state.context && state.context.lanes) || {})[lane] || { name: lane, role: '' };
+      const s = laneState(lane);
+      const hue = hashHue(lane);
+      const btn = el('button', {
+        class: 'deck-node' + (s.carrying ? ' busy' : ''),
+        style: 'left:' + pxPos(a, r) + '%;top:' + pyPos(a, r) + '%;--hue:' + hue + ';--flare:' + delayFor(a) + 's',
+        title: meta.name + ' - ' + (meta.role || '') + ' · ' + cluster.name + '. Filter the board to this lane.',
+      }, [
+        el('i', { class: 'deck-node-dot' }),
+        el('span', { class: 'deck-node-name' }, [meta.name]),
+        el('span', { class: 'deck-node-sub' }, [s.word]),
+      ]);
+      btn.addEventListener('click', () => openLaneInBoard(lane));
+      stage.appendChild(btn);
+    });
+
+    const core = el('button', {
+      class: 'deck-core', title: 'Filter the board to your own lane',
+    }, [
+      el('span', { class: 'deck-core-glow', 'aria-hidden': true }),
+      el('span', { class: 'deck-core-ring', 'aria-hidden': true }),
+      el('span', { class: 'deck-core-name' }, [ownerName()]),
+      el('span', { class: 'deck-core-sub' }, ['Mission Control']),
+      el('span', { class: 'deck-core-load' }, [items.length + ' in play']),
+    ]);
+    core.addEventListener('click', () => openLaneInBoard('owner'));
+    stage.appendChild(core);
+
+    /* ---- right: Agent presence ---- */
+    const presencePanel = el('div', { class: 'deck-panel deck-presence' }, [el('h3', {}, ['Agent presence'])]);
+    if (!sectors.length) presencePanel.appendChild(el('p', { class: 'hint' }, ['No agent lanes registered for this fleet.']));
+    sectors.forEach((c) => {
+      const group = el('div', { class: 'deck-group', style: '--hue:' + c.hue }, [
+        el('h4', { class: 'deck-group-name', title: c.blurb }, [el('i', {}), c.name]),
+      ]);
+      c.members.forEach((lane) => {
+        const meta = ((state.context && state.context.lanes) || {})[lane] || { name: lane, role: '' };
+        const s = laneState(lane);
+        const hue = hashHue(lane);
+        const n = nodeAt[lane];
+        const btn = el('button', { class: 'deck-agent', style: '--hue:' + hue + ';--flare:' + (n ? delayFor(n.a) : 0) + 's' }, [
+          el('i', { class: 'deck-dot' }),
+          el('span', { class: 'deck-agent-main' }, [el('b', {}, [meta.name]), el('span', {}, [meta.role || ''])]),
+          el('em', { class: 'deck-agent-state ' + s.cls }, [s.word]),
+        ]);
+        btn.addEventListener('click', () => openLaneInBoard(lane));
+        group.appendChild(btn);
+      });
+      presencePanel.appendChild(group);
+    });
+    const rightAside = el('aside', { class: 'deck-side' }, [presencePanel]);
+
+    main.appendChild(el('section', { class: 'deck' }, [leftAside, stage, rightAside]));
+  }
+
+  /* ================= ORG ================= */
+  function renderOrgView(main){
+    main.appendChild(el('div', { class: 'view-header' }, [
+      el('div', {}, [
+        el('h2', {}, ['Org']),
+        el('div', { class: 'view-sub' }, ['Every lane this fleet can address, grouped by sector, with its open count.']),
+      ]),
+    ]));
+    const sectors = buildSectors();
+    const items = state.board.items || [];
+    if (!sectors.length && !(state.context && state.context.lanes && state.context.lanes.owner)) {
+      main.appendChild(el('div', { class: 'empty-state' }, ['no lanes registered for this fleet']));
+      return;
+    }
+    const grid = el('div', { class: 'org-grid' });
+    sectors.forEach((c) => {
+      const card = el('div', { class: 'org-card' }, [
+        el('h4', { class: 'deck-group-name', style: 'color:hsl(' + c.hue + ' 46% 78%)', title: c.blurb }, [
+          el('i', { style: 'background:hsl(' + c.hue + ' 62% 58%)' }), c.name,
+        ]),
+      ]);
+      c.members.forEach((lane) => {
+        const meta = ((state.context.lanes) || {})[lane] || { name: lane, role: '' };
+        const openN = items.filter((i) => i.lane === lane).length;
+        card.appendChild(el('div', { class: 'org-row' }, [
+          el('div', {}, [el('div', { class: 'org-name' }, [meta.name]), el('div', { class: 'org-role' }, [meta.role || '—'])]),
+          el('span', { class: 'chip chip-neutral' }, [String(openN) + ' open']),
+        ]));
+      });
+      grid.appendChild(card);
+    });
+    const ownerLane = (state.context.lanes || {}).owner;
+    if (ownerLane) {
+      const openN = items.filter((i) => i.lane === 'owner').length;
+      const hue = hashHue('owner-lane');
+      grid.appendChild(el('div', { class: 'org-card' }, [
+        el('h4', { class: 'deck-group-name', style: 'color:hsl(' + hue + ' 46% 78%)' }, [el('i', { style: 'background:hsl(' + hue + ' 62% 58%)' }), 'Owner']),
+        el('div', { class: 'org-row' }, [
+          el('div', {}, [el('div', { class: 'org-name' }, [ownerName()]), el('div', { class: 'org-role' }, [ownerLane.role || 'the person running this board'])]),
+          el('span', { class: 'chip chip-neutral' }, [String(openN) + ' open']),
+        ]),
+      ]));
+    }
+    main.appendChild(grid);
+  }
+
   /* ================= BOARD ================= */
   //
   // An item's status (where the work is) and its lane (who owns it) are two
@@ -785,6 +1366,9 @@
   function laneName(laneId){
     const lanes = state.context && state.context.lanes;
     return (lanes && lanes[laneId] && lanes[laneId].name) || laneId;
+  }
+  function laneDisplayName(laneId){
+    return laneId === 'owner' ? ownerName() : laneName(laneId);
   }
 
   // Who said this, in words. The owner's own id resolves to their name; 'system'
@@ -816,15 +1400,11 @@
   }
 
   function renderBoardView(main){
-    if (state.board.showArchived) return renderArchivedView(main);
-
     const ctx = state.context;
     const items = state.board.items || [];
     const wYou = state.board.waiting_on_you || [];
     const wAgents = state.board.waiting_on_agents || [];
 
-    const archivedBtn = el('button', { class: 'btn-ghost' }, ['Archived']);
-    archivedBtn.addEventListener('click', async () => { state.board.showArchived = true; await loadArchived(); renderShell(); });
     const newItemBtn = el('button', { class: 'btn-ghost' }, ['+ New item']);
     newItemBtn.addEventListener('click', () => openNewItemDialog());
     const instructBtn = el('button', { class: 'btn' }, ['+ Instruct']);
@@ -835,11 +1415,11 @@
         el('h2', {}, ['Board']),
         el('div', { class: 'view-sub' }, ['Where the work is, and who has the ball.']),
       ]),
-      el('div', { class: 'row' }, [archivedBtn, newItemBtn, instructBtn]),
+      el('div', { class: 'row' }, [newItemBtn, instructBtn]),
     ]));
 
-    // Two queues, and neither is the other. This is the first thing a person
-    // should see: what needs a verdict, and what an agent has not answered.
+    // Two queues, and neither is the other: what needs a verdict (also on
+    // Approvals), and what an agent has not answered yet.
     const queueRow = el('div', { class: 'queue-row' });
     const youCard = el('button', { class: 'queue-card' + (state.board.queueFilter === 'you' ? ' active' : '') }, [
       el('div', { class: 'queue-count' }, [String(wYou.length)]),
@@ -854,9 +1434,14 @@
     queueRow.appendChild(youCard);
     queueRow.appendChild(agentsCard);
     if (state.board.queueFilter) {
-      const clearBtn = el('button', { class: 'filter-btn active' }, ['clear filter ×']);
+      const clearBtn = el('button', { class: 'filter-btn active' }, ['clear queue filter ×']);
       clearBtn.addEventListener('click', () => { state.board.queueFilter = null; renderShell(); });
       queueRow.appendChild(clearBtn);
+    }
+    if (state.board.laneFilter) {
+      const laneClear = el('button', { class: 'filter-btn active' }, ['lane: ' + laneDisplayName(state.board.laneFilter) + ' ×']);
+      laneClear.addEventListener('click', () => { state.board.laneFilter = null; renderShell(); });
+      queueRow.appendChild(laneClear);
     }
     main.appendChild(queueRow);
 
@@ -867,6 +1452,9 @@
     } else if (state.board.queueFilter === 'agents') {
       const ids = new Set(wAgents.map((w) => w.item));
       displayItems = items.filter((i) => ids.has(i.id));
+    }
+    if (state.board.laneFilter) {
+      displayItems = displayItems.filter((i) => i.lane === state.board.laneFilter);
     }
 
     const columnsWrap = el('div', { class: 'board-columns' });
@@ -918,9 +1506,9 @@
     if (item.waitingOn) metaBits.push('waiting on: ' + item.waitingOn);
     const children = [
       el('div', { class: 'item-title' }, [pendingHere ? el('span', { class: 'waiting-badge' }) : null, item.title]),
-      el('div', { class: 'item-meta' }, [laneName(item.lane) + ' · ' + item.kind]),
+      el('div', { class: 'item-meta' }, [laneDisplayName(item.lane) + ' · ' + item.kind]),
     ];
-    if (metaBits.length) children.push(el('div', { style: 'font-size:11px; color:var(--text-faint); margin-top:4px' }, [metaBits.join(' · ')]));
+    if (metaBits.length) children.push(el('div', { style: 'font-size:11px; color:var(--ink-faint); margin-top:4px' }, [metaBits.join(' · ')]));
     if (item.tag) children.push(el('div', { style: 'margin-top:5px' }, [el('span', { class: 'chip chip-neutral' }, [item.tag])]));
     const card = el('button', { class: 'item-card' + (state.board.selectedId === item.id ? ' selected' : '') }, children);
     card.addEventListener('click', () => {
@@ -932,17 +1520,74 @@
     return card;
   }
 
+  /* ---- approvals: the pending-proposal list ---- */
+  function renderApprovalsView(main){
+    main.appendChild(el('div', { class: 'view-header' }, [
+      el('div', {}, [
+        el('h2', {}, ['Approvals']),
+        el('div', { class: 'view-sub' }, ['Proposals waiting on your verdict, one row per item.']),
+      ]),
+    ]));
+    const items = state.board.items || [];
+    const byId = {};
+    items.forEach((i) => { byId[i.id] = i; });
+    // Only a real proposal has an entry id here - "waiting on you" also covers
+    // things like acknowledging a platform team decision, which is not a
+    // verdict this view should ask for.
+    const wYou = (state.board.waiting_on_you || []).filter((w) => w.entry);
+    const matches = wYou.map((w) => ({ w, item: byId[w.item] })).filter((x) => x.item);
+
+    if (!matches.length) {
+      main.appendChild(el('div', { class: 'empty-state' }, ['nothing awaiting your verdict']));
+      return;
+    }
+    if (!state.board.selectedId || !matches.some((x) => x.item.id === state.board.selectedId)) {
+      state.board.selectedId = matches[0].item.id;
+    }
+    const layout = el('div', { class: 'board-layout' });
+    const list = el('div', { class: 'board-list' });
+    matches.forEach(({ w, item }) => {
+      const children = [
+        el('div', { class: 'item-title' }, [item.title]),
+        el('div', { class: 'item-meta' }, [laneDisplayName(item.lane) + ' · ' + item.kind]),
+      ];
+      if (w.why) children.push(el('div', { style: 'font-size:11px; color:var(--ink-faint); margin-top:4px' }, [w.why]));
+      const card = el('button', { class: 'item-card' + (state.board.selectedId === item.id ? ' selected' : '') }, children);
+      card.addEventListener('click', () => {
+        state.board.selectedId = item.id;
+        state.board.detail = null;
+        state.board.historyOpen = false;
+        renderShell();
+      });
+      list.appendChild(card);
+    });
+    layout.appendChild(list);
+
+    const detailWrap = el('div', { class: 'board-detail' });
+    if (!state.board.detail || state.board.detail.id !== state.board.selectedId) {
+      if (state.board.detailLoading !== state.board.selectedId) loadItemDetail(state.board.selectedId);
+      detailWrap.appendChild(el('div', { class: 'empty-state' }, ['loading item...']));
+    } else {
+      renderItemDetail(detailWrap, state.board.detail);
+    }
+    layout.appendChild(detailWrap);
+    main.appendChild(layout);
+  }
+
   /* ---- archived ---- */
   function renderArchivedView(main){
-    const backBtn = el('button', { class: 'btn-ghost' }, ['← Back to board']);
-    backBtn.addEventListener('click', () => { state.board.showArchived = false; renderShell(); });
     main.appendChild(el('div', { class: 'view-header' }, [
       el('div', {}, [
         el('h2', {}, ['Archived']),
         el('div', { class: 'view-sub' }, ['Left the board, but nothing is lost. Restore brings an item back as it was.']),
       ]),
-      backBtn,
     ]));
+
+    if (!state.board.archivedLoaded && !state.board.archivedLoading) loadArchived();
+    if (state.board.archivedLoading && !state.board.archivedLoaded) {
+      main.appendChild(el('div', { class: 'empty-state' }, ['loading archive...']));
+      return;
+    }
 
     const items = state.board.archivedItems || [];
     if (!items.length) {
@@ -955,15 +1600,15 @@
         restoreBtn.disabled = true;
         const res = await api('/api/fleet/board/' + item.id + '/restore', { method: 'POST' });
         restoreBtn.disabled = false;
-        if (res.ok) { await loadArchived(); await loadBoard(); renderShell(); }
+        if (res.ok) { state.board.archivedLoaded = false; await loadArchived(); await loadBoard(); renderShell(); }
       });
       main.appendChild(el('div', { class: 'card' }, [
         el('div', { class: 'row-between' }, [
           el('h3', {}, [item.title]),
           itemStatusChip(item.status),
         ]),
-        el('div', { style: 'font-size:12px; color:var(--text-faint); margin-top:2px' }, [
-          laneName(item.lane) + ' · ' + item.kind + ' · archived ' + fmtTime(item.archivedAt),
+        el('div', { style: 'font-size:12px; color:var(--ink-faint); margin-top:2px' }, [
+          laneDisplayName(item.lane) + ' · ' + item.kind + ' · archived ' + fmtTime(item.archivedAt),
         ]),
         item.archiveReason ? el('div', { style: 'font-size:13px; margin-top:6px' }, ['reason: ' + item.archiveReason]) : null,
         el('div', { style: 'margin-top:10px' }, [restoreBtn]),
@@ -979,7 +1624,7 @@
     const myAgents = (ctx && ctx.agents) || [];
 
     const headerChips = [
-      el('span', { class: 'chip chip-neutral' }, [laneName(item.lane)]),
+      el('span', { class: 'chip chip-neutral' }, [laneDisplayName(item.lane)]),
       el('span', { class: 'chip chip-neutral' }, [item.kind]),
     ];
     if (item.tag) headerChips.push(el('span', { class: 'chip chip-neutral' }, [item.tag]));
@@ -991,7 +1636,7 @@
         itemStatusChip(item.status),
       ]),
       el('div', { class: 'row', style: 'margin-top:6px' }, headerChips),
-      el('div', { style: 'color:var(--text-faint); font-size:12px; margin-top:8px' }, [
+      el('div', { style: 'color:var(--ink-faint); font-size:12px; margin-top:8px' }, [
         item.id + ' · created ' + fmtTime(item.created_at) + ' · touched ' + item.touched,
       ]),
       el('dl', { class: 'kv', style: 'margin-top:10px' }, [
@@ -999,7 +1644,7 @@
         el('dt', {}, ['waiting on']), el('dd', {}, [item.waitingOn || '—']),
         el('dt', {}, ['due']), el('dd', {}, [item.due || '—']),
       ]),
-      item.status === 'parked' && item.parkReason ? el('div', { style: 'font-size:12px; color:var(--text-faint); margin-top:6px' }, ['parked: ' + item.parkReason]) : null,
+      item.status === 'parked' && item.parkReason ? el('div', { style: 'font-size:12px; color:var(--ink-faint); margin-top:6px' }, ['parked: ' + item.parkReason]) : null,
     ]));
 
     // The unmissable panel: a pending proposal needs a verdict before anything
@@ -1056,7 +1701,9 @@
       body.push(el('div', { class: 'thread-text' }, [entry.body || '']));
     }
 
-    return el('div', { class: 'thread-entry ' + role }, [
+    const attrs = { class: 'thread-entry ' + role };
+    if (role === 'agent') attrs.style = '--hue:' + hashHue(entry.author);
+    return el('div', attrs, [
       el('div', { class: 'thread-avatar' }, [roleInitial(entry, role)]),
       el('div', { class: 'thread-body' }, body),
     ]);
@@ -1105,7 +1752,7 @@
 
   function renderScopeBeat(res){
     const beat = el('div', { class: 'scope-beat' }, [
-      el('div', { style: 'font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em' }, ['the ledger will compute']),
+      el('div', { style: 'font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em' }, ['the ledger will compute']),
       el('div', { class: 'scope-label' }, [res.scope_label]),
       el('div', { class: 'scope-basis' }, [res.scope_basis]),
     ]);
@@ -1145,7 +1792,7 @@
       box.appendChild(renderCandidateBlock(pendingEntry.candidate));
       if (pendingEntry.scope_preview) box.appendChild(renderScopeBeat(pendingEntry.scope_preview));
     } else {
-      box.appendChild(el('div', { style: 'background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-top:10px; font-size:13px; color:var(--text-dim)' }, [
+      box.appendChild(el('div', { style: 'background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-top:10px; font-size:13px; color:var(--ink-dim)' }, [
         'This is a plan, not an output. Approving it authorises the plan and publishes nothing.',
       ]));
     }
@@ -1178,7 +1825,7 @@
     if (state.board.historyOpen) {
       if (!count) list.appendChild(el('div', { class: 'empty-state' }, ['no changes yet']));
       changes.forEach((c) => list.appendChild(el('div', {
-        style: 'font-size:12px; color:var(--text-faint); padding:5px 0; border-bottom:1px solid var(--border-soft)',
+        style: 'font-size:12px; color:var(--ink-faint); padding:5px 0; border-bottom:1px solid var(--line-soft)',
       }, [fmtTime(c.at) + ' · ' + c.body])));
       box.appendChild(list);
     }
@@ -1274,7 +1921,7 @@
   function renderInstructMoreForm(item){
     const box = el('div', { class: 'card' });
     box.appendChild(el('div', { class: 'section-title' }, ['Add an instruction']));
-    box.appendChild(el('div', { style: 'font-size:13px; color:var(--text-dim)' }, [
+    box.appendChild(el('div', { style: 'font-size:13px; color:var(--ink-dim)' }, [
       'The API does not expose a way to post a further instruction onto an existing item ' +
       '(only note and report can be added here; Instruct always opens a new item). ' +
       'Use the note above to log guidance on ' + item.id + ', or + Instruct to start a related item.',
@@ -1288,7 +1935,7 @@
 
     const laneSel = el('select', { 'aria-label': 'lane' }, [
       el('option', { value: '' }, ['choose a lane']),
-      ...myAgents.map((a) => el('option', { value: a.id, selected: item.lane === a.id }, [a.id + (a.purpose ? ' — ' + a.purpose : '')])),
+      ...myAgents.map((a) => el('option', { value: a.id, selected: item.lane === a.id }, [a.id + (a.purpose ? ' - ' + a.purpose : '')])),
     ]);
     const sourceSel = el('select', { 'aria-label': 'source' }, [
       el('option', { value: 'summary', selected: true }, ['summary (a guess written here)']),
@@ -1526,7 +2173,7 @@
   function openRejectDialog(item){
     const overlay = modalOverlay();
     const whyInput = el('textarea', { placeholder: 'why is this rejected' });
-    const submitBtn = el('button', { class: 'btn btn-danger', style: 'background:var(--red); color:#2a0e08' }, ['Reject']);
+    const submitBtn = el('button', { class: 'btn btn-danger', style: 'background:var(--hot); color:#2a0e08' }, ['Reject']);
     submitBtn.addEventListener('click', async () => {
       if (!whyInput.value.trim()) { showError('a rejection needs a reason'); return; }
       submitBtn.disabled = true;
@@ -1550,7 +2197,7 @@
     const overlay = el('div', {
       // The overlay scrolls, and its card is capped, so a dialog that grows
       // (a refusal plus the approval step) never runs off the viewport.
-      style: 'position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-start;'
+      style: 'position:fixed; inset:0; background:rgba(2,6,16,.68); display:flex; align-items:flex-start;'
         + ' justify-content:center; z-index:200; padding:32px 16px; overflow-y:auto',
     });
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
@@ -1560,14 +2207,14 @@
     return overlay;
   }
 
-  /* ================= CONSUME ================= */
+  /* ================= CONSUME (tab label: Ledger) ================= */
   function renderConsumeView(main){
     const ctx = state.context;
     const myAgents = (ctx && ctx.agents) || [];
 
     main.appendChild(el('div', { class: 'view-header' }, [
       el('div', {}, [
-        el('h2', {}, ['Consume']),
+        el('h2', {}, ['Ledger']),
         el('div', { class: 'view-sub' }, ['Ask the ledger what it knows. Answers are filtered by your own entitlements.']),
       ]),
     ]));
@@ -1629,7 +2276,7 @@
       const card = el('div', { class: 'answer-card' }, [
         el('div', { class: 'answer-top' }, [
           el('div', {}, [
-            el('div', { style: 'font-size:11px; color:var(--text-faint)' }, [a.kind + (a.subject ? ' · ' + a.subject : '')]),
+            el('div', { style: 'font-size:11px; color:var(--ink-faint)' }, [a.kind + (a.subject ? ' · ' + a.subject : '')]),
           ]),
           el('div', { class: 'row' }, [freshnessChip(a.freshness), statusChip(a.status)]),
         ]),
@@ -1679,11 +2326,11 @@
       const rows = prov.chain.map((c) => el('div', { class: 'row', style: 'margin-bottom:4px' }, [
         el('span', { class: 'chip chip-neutral' }, ['depth ' + c.depth]),
         el('code', {}, [c.id]),
-        el('span', { style: 'color:var(--text-faint); font-size:12px' }, [c.kind + ' · ' + c.producer.fleet + '/' + c.producer.agent + ' · ' + c.state]),
+        el('span', { style: 'color:var(--ink-faint); font-size:12px' }, [c.kind + ' · ' + c.producer.fleet + '/' + c.producer.agent + ' · ' + c.state]),
       ]));
       box.appendChild(el('div', {}, rows));
     } else {
-      box.appendChild(el('div', { style: 'color:var(--text-faint); font-size:12px' }, ['no upstream inputs: a root output']));
+      box.appendChild(el('div', { style: 'color:var(--ink-faint); font-size:12px' }, ['no upstream inputs: a root output']));
     }
     if ((prov.descendants || []).length) {
       box.appendChild(el('div', { class: 'section-title', style: 'margin-top:10px' }, ['descendants']));
@@ -1694,14 +2341,14 @@
     return box;
   }
 
-  /* ================= CATALOG ================= */
+  /* ================= CATALOG (tab label: Agents) ================= */
   function renderCatalogView(main){
     const ctx = state.context;
     const myAgents = (ctx && ctx.agents) || [];
 
     main.appendChild(el('div', { class: 'view-header' }, [
       el('div', {}, [
-        el('h2', {}, ['Enterprise agents']),
+        el('h2', {}, ['Agents']),
         el('div', { class: 'view-sub' }, ['What this fleet can reach: consume, invoke, and the raw connectors underneath.']),
       ]),
     ]));
@@ -1719,7 +2366,7 @@
     agentSel.addEventListener('change', reload);
     main.appendChild(el('div', { class: 'card' }, [
       el('div', { class: 'row' }, [agentSel, loadBtn]),
-      el('div', { style: 'font-size:12px;color:var(--text-faint);margin-top:8px' }, [
+      el('div', { style: 'font-size:12px;color:var(--ink-faint);margin-top:8px' }, [
         'Invoke depends on which of your agents is calling, so the grant column changes with this selection.',
       ]),
     ]));
@@ -1813,8 +2460,8 @@
     const map = {
       identity: 'nothing to do here: the employee behind this token is not active.',
       registry: 'this target is not invocable, or the connector rejected the call. Consume its outputs instead.',
-      access_list: 'request access from Enterprise agents.',
-      grant: 'request a grant from Enterprise agents.',
+      access_list: 'request access from Agents.',
+      grant: 'request a grant from Agents.',
       rate_limit: 'the target is rate limited. Wait and try again.',
       load_shed: 'the gateway is at capacity. Retry once.',
       approval_required: 'a human has to approve this exact write before it is sent.',
@@ -1839,11 +2486,11 @@
       if (isGrant) body.agent = agentSel.value;
       const res = await api('/api/fleet/requests', { method: 'POST', body });
       submitBtn.disabled = false;
-      if (res.ok) { overlay.remove(); await refreshAll(); showError('request sent: see it on the Board, or Access & grants.'); }
+      if (res.ok) { overlay.remove(); await refreshAll(); showError('request sent: see it on the Board, or Access.'); }
     });
     const card = el('div', { class: 'card', style: 'width:460px; max-width:90vw' }, [
       el('h3', {}, [isGrant ? 'Request a grant' : 'Request access'], ),
-      el('div', { style: 'font-size:12px; color:var(--text-faint); margin-bottom:8px' }, ['target: ' + catalogItem.id]),
+      el('div', { style: 'font-size:12px; color:var(--ink-faint); margin-bottom:8px' }, ['target: ' + catalogItem.id]),
       isGrant ? el('div', { class: 'field' }, [el('label', {}, ['agent']), agentSel]) : null,
       el('div', { class: 'field' }, [el('label', {}, ['justification']), justInput]),
       el('div', { class: 'row', style: 'margin-top:10px; justify-content:flex-end' }, [
@@ -1894,7 +2541,7 @@
 
     const card = el('div', { class: 'card', style: 'width:520px; max-width:92vw' }, [
       el('h3', {}, ['Invoke write op: ' + op + ' on ' + catalogItem.id]),
-      el('div', { style: 'font-size:12px; color:var(--text-faint); margin-bottom:8px' }, ['A write always needs a human approval. You will see the exact call before anything is sent.']),
+      el('div', { style: 'font-size:12px; color:var(--ink-faint); margin-bottom:8px' }, ['A write always needs a human approval. You will see the exact call before anything is sent.']),
       el('div', { class: 'field' }, [el('label', {}, ['args (JSON)']), argsInput]),
       el('div', { class: 'row', style: 'margin-top:10px; justify-content:flex-end' }, [
         el('button', { class: 'btn-ghost', onclick: () => overlay.remove() }, ['Close']),
@@ -1906,12 +2553,12 @@
     document.body.appendChild(overlay);
   }
 
-  /* ================= ACCESS & GRANTS ================= */
+  /* ================= ACCESS ================= */
   function renderAccessView(main){
     const ctx = state.context;
     main.appendChild(el('div', { class: 'view-header' }, [
       el('div', {}, [
-        el('h2', {}, ['Access & grants']),
+        el('h2', {}, ['Access']),
         el('div', { class: 'view-sub' }, ['Live, expired and revoked grants held by your fleet, plus your pending tool needs and open platform requests.']),
       ]),
     ]));
@@ -1956,7 +2603,7 @@
       tools.pending.forEach((t) => {
         toolsCard.appendChild(el('div', { class: 'row', style: 'margin-bottom:6px' }, [
           el('span', { class: 'chip chip-amber' }, [t.name]),
-          el('span', { style: 'font-size:12px; color:var(--text-faint)' }, [t.why + ' (needs ' + t.needs + ')']),
+          el('span', { style: 'font-size:12px; color:var(--ink-faint)' }, [t.why + ' (needs ' + t.needs + ')']),
         ]));
       });
     }
@@ -1968,10 +2615,10 @@
     if (!openReqs.length) reqCard.appendChild(el('div', { class: 'empty-state' }, ['none yet']));
     else {
       openReqs.forEach((i) => {
-        reqCard.appendChild(el('div', { class: 'row-between', style: 'padding:8px 0; border-bottom:1px solid var(--border-soft)' }, [
+        reqCard.appendChild(el('div', { class: 'row-between', style: 'padding:8px 0; border-bottom:1px solid var(--line-soft)' }, [
           el('div', {}, [
             el('div', { style: 'font-weight:600; font-size:13px' }, [i.title]),
-            el('div', { style: 'font-size:11px; color:var(--text-faint)' }, [i.platform_request.type + ' → ' + i.platform_request.target]),
+            el('div', { style: 'font-size:11px; color:var(--ink-faint)' }, [i.platform_request.type + ' → ' + i.platform_request.target]),
           ]),
           itemStatusChip(i.status),
         ]));
@@ -2013,7 +2660,7 @@
       ])),
       el('div', { class: 'section-title', style: 'margin-top:12px' }, ['Auth']),
       el('div', { style: 'font-size:13px' }, ['scheme: ' + state.connection.auth.scheme + ' · token env var: ', el('code', {}, [state.connection.auth.token_env])]),
-      el('div', { style: 'font-size:12px; color:var(--text-faint); margin-top:4px' }, [state.connection.auth.note]),
+      el('div', { style: 'font-size:12px; color:var(--ink-faint); margin-top:4px' }, [state.connection.auth.note]),
     ]));
   }
 
