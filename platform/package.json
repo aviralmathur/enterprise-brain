@@ -3,9 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Reference implementation of the Enterprise Brain: output ledger, provenance cascade, computed scope, registry, grants, invoke gateway, and two separate fleet trees.",
+  "description": "Reference implementation of the Enterprise Brain: output ledger, provenance cascade, computed scope, registry, grants, invoke gateway, two Mission Controls, and a hosted deployment on Vercel Blob.",
+  "engines": { "node": ">=18" },
   "scripts": {
+    "start": "node serve.mjs",
+    "seed": "node serve.mjs --seed",
     "accept": "node acceptance/run.mjs",
-    "seed": "node acceptance/seed.mjs"
+    "deploy": "vercel deploy --prod"
+  },
+  "//": "Running it locally needs nothing installed. @vercel/blob is imported dynamically and only by the hosted storage backend, so it is optional: install it to deploy.",
+  "optionalDependencies": {
+    "@vercel/blob": "^2.8.0"
   }
 }

@@ -7,6 +7,7 @@
 // things it can write on the platform side are an output through the approve gate
 // and a grant request through the link.
 import { rmSync, existsSync } from 'node:fs';
+import { currentBackend } from './brain/store.mjs';
 
 import { Ledger } from './brain/ledger.mjs';
 import { Audit } from './brain/audit.mjs';
@@ -149,7 +150,13 @@ export function build({ root = 'data', fresh = false, idp = null, devTokens = fa
   // only the platform workspace leaves every employee's board behind, and the
   // next run reads work that a previous one wrote: a check that passes on a
   // clean machine and drifts on a used one.
-  if (fresh && existsSync(root)) rmSync(root, { recursive: true, force: true });
+  //
+  // On a backend with no filesystem there is nothing to unlink, so the
+  // in-memory documents are what has to go.
+  if (fresh) {
+    if (existsSync(root)) rmSync(root, { recursive: true, force: true });
+    currentBackend().reset?.();
+  }
 
   const platform = buildPlatform({
     ws: platformWorkspace(`${root}/platform`),

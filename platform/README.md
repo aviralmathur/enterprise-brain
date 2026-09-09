@@ -5,7 +5,7 @@ through which those fleets consume what the enterprise's own agents produce.
 
 This is a **working reference implementation**, not a production deployment. Every
 rule in [`spec/contracts.md`](spec/contracts.md) is enforced by real code and
-proved by a runnable check. Three things are seams rather than integrations, and
+proved by a runnable check. Four things are seams rather than integrations, and
 are marked as such below.
 
 ```bash
@@ -24,6 +24,14 @@ Then open either board. `--seed` prints a link that signs you in:
 
 No build step and no dependency install. The pages are three static files and the
 token travels in the URL fragment, which never reaches the server.
+
+To let other people open a board without running a server, host it. **Vercel is
+the recommended host**: the brain is one pure request handler, so it deploys as
+a single function, and Vercel Blob gives it the durable storage a serverless
+filesystem cannot. See [`DEPLOY.md`](DEPLOY.md). One step is yours alone and
+nobody should ever do it for you: `vercel login` authenticates in your own
+browser, and no agent working in this repo should ask you for a Vercel
+credential.
 
 No dependencies. Node 18+. All state is plain text under `data/` — `cat
 data/demo/ledger.jsonl` is a feature, not a debugging affordance.
@@ -118,6 +126,8 @@ brain/                  the ledger and everything harness-agnostic (D12)
   provenance.mjs        derived_from graph, descendants, conflicts
   query.mjs             the consume path: two checks, cites provenance
   board.mjs             Mission Control: items, lanes, statuses, append-only threads
+  store.mjs             ── SEAM: four storage primitives, swappable backend
+  blob-store.mjs        ── SEAM: the hosted backend, one document per workspace
   identity.mjs          ── SEAM: the IdP. Local provider; stores nothing.
   audit.mjs             everything crossing the fleet boundary
   telemetry.mjs         usage → deprecation candidates
@@ -140,9 +150,15 @@ employee-fleet/         self-serve, free to create (D2)
   enforce.mjs           advisory local check — worthless against intent
   board.mjs             private cockpit; a verdict authorises, and publishes an output
 
-api/                    what the two boards are built on
+routes/                 what the two boards are built on
   fleet.mjs             what a fleet can do, and nothing else
   platform.mjs          what the platform team can do. No route reads a fleet board.
+
+api/host.mjs            the whole brain as one serverless function. The only
+                        file in api/, because Vercel makes a function of each.
+vercel.json             every path to that one function
+seed-hosted.mjs         seed a deployment from your machine, over its own store
+DEPLOY.md               hosting it, and the one step only you can take
 
 ui/                     the boards themselves. Three files, no build step.
   index.html            landing: both boards, the local tokens, curl examples
@@ -152,21 +168,22 @@ ui/                     the boards themselves. Three files, no build step.
 kit/skills/             what an employee installs — six skills, one file each
 spec/contracts.md       the Phase 0 contracts
 workspace.mjs           storage ownership: platform vs employee
-acceptance/run.mjs      68 checks, one per exit test or decision
+acceptance/run.mjs      73 checks, one per exit test or decision
 wire.mjs                buildPlatform() and buildFleet()
 serve.mjs               start the host
 ```
 
-## The three seams
+## The four seams
 
-Everything else is real. These three are interfaces with a local implementation
-behind them, because none of them can exist on a laptop:
+Everything else is real. These four are interfaces with a local implementation
+behind them, because none of them can exist on a laptop as itself:
 
 | Seam | What is real | What to swap in |
 |---|---|---|
 | **Identity** (`brain/identity.mjs`) | The provider contract, and the invariant that the brain re-resolves on every call and **persists no entitlements** — proved by a check that walks every stored record | A real IdP client. `resolve(employeeId) → { id, status, entitlements }` is the whole surface. |
 | **Connectors** (`platform-fleet/connectors/`) | The normalise-to-schema contract, the `auth_mode` declaration that drives scope review, and read-vs-write op classification that forces approval | A real vendor client in `call()`. `normalise()` does not change. |
-| **Tokens** (`platform-fleet/tokens.mjs`) | That a token binds employee *and* fleet, that it is re-read on every request, and that revocation and offboarding both take effect immediately | Whatever mints your tokens — OIDC, an internal STS, mTLS identity. `resolve(token) → { employee, fleet }` is the whole surface. |
+| **Tokens** (`platform-fleet/tokens.mjs`) | That a token binds employee *and* fleet, that it is re-read on every request, and that revocation and offboarding both take effect immediately | Whatever mints your tokens — OIDC, an internal STS, mTLS identity. `resolve(token) → { kind, employee, fleet }` is the whole surface. |
+| **Storage** (`brain/store.mjs`) | Four synchronous primitives over a swappable backend, and the document backend's whole lifecycle: hydrated before a request, flushed after, one document per workspace, and a **loud failure rather than an empty-looking read** | `brain/blob-store.mjs` is Vercel Blob. `load(name)` and `save(name, doc)` is the entire contract, so Postgres or S3 goes in the same place. |
 
 Swapping any of them is a config change. Nothing above those files moves.
 
@@ -250,7 +267,7 @@ fields are still absent, so the deferral stays honest.
 
 ## What the acceptance suite proves
 
-68 checks, grouped by the phase whose exit test they are.
+73 checks, grouped by the phase whose exit test they are.
 
 | Phase | Proves |
 |---|---|
@@ -262,6 +279,7 @@ fields are still absent, so the deferral stays honest.
 | 6 | every invocable agent has an adapter behind it; status comes from a check that can fail; **a host ships with gates registered, and the seeded world shows both a pass with its evidence and a kind that stayed unverified**; telemetry surfaces unused agents; conflicting answers are surfaced, never resolved |
 | Mission Control | an item carries a lane, a kind and a work status; a lane must be a registered agent; a proposal without concrete actions is refused; **a verdict on a plan publishes nothing, a verdict on a candidate publishes exactly one output**; a proposal cannot be decided twice; a field change is an entry and cannot be forged; park and archive are both lossless; every write bumps a revision; what waits on me and what waits on an agent are two different queues; both boards speak the same thread grammar |
 | Workspaces | employee and platform storage are separate trees; two employees never share a file; tool selection sorts harness from enterprise; the descriptor names all three endpoints; the URL link behaves identically to the direct one; **the URL route cannot be walked to read someone else's request** |
+| Hosted storage | a path maps to its own workspace document and two employees never share one; **a read from a document nobody hydrated fails loudly rather than looking empty**; the whole brain runs on the hosted backend and gives the same filtered answers; only dirty documents are written back; a request hydrates the platform document and one workspace, never more |
 | Boards | both boards and the landing page are served as pages; a page needs no token and bakes none in; **the two API surfaces refuse each other's tokens**; the API needs a live token exactly as the endpoints do; a board's items carry a lane and a work status and its two queues stay separate; the local token list is off by default and never answers off the loopback interface |
 | Host | health is open and everything else needs a live token; **a body-supplied employee id is ignored and a body-supplied fleet id cannot be borrowed**; an unregistered agent is refused first; publishing over the wire still computes scope and forces the signer; an approval cannot name another approver; revocation and offboarding are immediate; an archived fleet cannot act; a 500 leaks nothing |
 
@@ -283,8 +301,8 @@ Honest list, in the order they would bite.
    thin clients over an API that is checked thoroughly, and every action they
    take is reachable with `curl`, but nothing exercises the rendering itself. A
    broken page would not fail the suite.
-6. **The host is HTTP on localhost with no TLS, CORS, or request limits.** Fine
-   behind a reverse proxy that terminates TLS and rate-limits by IP; not fine
+6. **The host speaks plain HTTP.** Fine behind a proxy that terminates TLS and
+   rate-limits by IP, which is what a Vercel deployment gives it; not fine
    exposed directly.
 7. **Load shedding is a per-minute rate limit and an in-flight cap**, and the
    counters are per-process. Real shedding needs a queue with priorities and shared

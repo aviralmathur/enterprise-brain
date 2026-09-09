@@ -25,8 +25,8 @@ import { createPlatformBoardHandler } from './handler.mjs';
 import { newOutput } from '../brain/schema.mjs';
 import { describe } from '../brain/scope.mjs';
 import { freshness } from '../brain/schema.mjs';
-import { handleFleet } from '../api/fleet.mjs';
-import { handlePlatform } from '../api/platform.mjs';
+import { handleFleet } from '../routes/fleet.mjs';
+import { handlePlatform } from '../routes/platform.mjs';
 
 const json = (status, body) => ({ status, body });
 

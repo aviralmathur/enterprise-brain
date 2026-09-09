@@ -899,6 +899,111 @@ await check('every invocable agent has its connector wired', async () => {
   return `${wired.join(', ')} all have an adapter`;
 });
 
+// ──────────────────── HOSTED STORAGE ────────────────────
+phase('Hosted storage: the same brain with no filesystem under it');
+
+// A deployment on a serverless platform has no durable disk, so storage becomes
+// a document per workspace, hydrated before a request and flushed after. These
+// checks run the real thing over a fake remote: identical semantics, nothing
+// durable, no token.
+const {
+  setBackend, currentBackend, documentFor, createFilesystemBackend,
+} = await import('../brain/store.mjs');
+const { createFakeRemoteBackend, documentsFor } = await import('../brain/blob-store.mjs');
+
+await check('a path maps to its own workspace document, never a shared one', () => {
+  const a = documentFor('data/hosted/workspaces/alice/fleet-board.json');
+  const b = documentFor('data/hosted/workspaces/bob/fleet-board.json');
+  const p = documentFor('data/hosted/platform/ledger.jsonl');
+
+  assertEqual(a.doc, 'workspaces/alice', "alice's board is her own document");
+  assertEqual(b.doc, 'workspaces/bob', "bob's is his");
+  assert(a.doc !== b.doc, 'two employees never share a document');
+  assertEqual(p.doc, 'platform', 'and the platform side is its own');
+  assertEqual([a.key, p.key], ['fleet-board.json', 'ledger.jsonl'], 'the key inside is the file name');
+  // Windows separators reach this from join(), so they have to map the same way.
+  assertEqual(documentFor('data\\hosted\\workspaces\\alice\\tools.json').doc, 'workspaces/alice', 'either separator');
+  return `${a.doc} | ${b.doc} | ${p.doc}`;
+});
+
+await check('a read from a document nobody hydrated fails loudly', () => {
+  const backend = createFakeRemoteBackend();
+  const previous = currentBackend();
+  setBackend(backend);
+  try {
+    let threw = null;
+    try {
+      backend.get('data/hosted/platform/registry.json');
+    } catch (err) {
+      threw = err.message;
+    }
+    // Returning null here would be indistinguishable from empty storage, and
+    // the caller would write a fresh empty board over what is actually stored.
+    assert(threw, 'an unhydrated read must throw, not look empty');
+    assert(/was not hydrated/.test(threw), 'and say so');
+    return threw.slice(0, 72) + '...';
+  } finally {
+    setBackend(previous);
+  }
+});
+
+await check('the whole brain runs on the hosted backend and answers the same', async () => {
+  const backend = createFakeRemoteBackend();
+  const previous = currentBackend();
+  setBackend(backend);
+  try {
+    const { seedWorld, DIRECTORY: SEED_DIRECTORY } = await import('../seed.mjs');
+    const { build } = await import('../wire.mjs');
+
+    // Order matters on this backend, and it is the same order the hosted entry
+    // point uses: hydrate first, then build, then handle. `fresh` is for a
+    // filesystem run only, because on a document backend it drops exactly the
+    // documents that were just hydrated.
+    await backend.hydrate(['platform', 'workspaces/alice', 'workspaces/bob', 'workspaces/carol']);
+    const w = build({ root: 'data/hosted-check', idp: SEED_DIRECTORY });
+    await seedWorld(w, { baseUrl: 'http://localhost' });
+
+    // The same properties the filesystem checks prove, with no filesystem.
+    const alice = w.query.ask('alice', { kind: 'metric', subject: 'q3_revenue' });
+    const carol = w.query.ask('carol', { kind: 'metric', subject: 'q3_revenue' });
+    assert(alice.answers.length > 0, 'alice sees the figures she is entitled to');
+    assertEqual(carol.answers.length, 0, 'carol sees none of them');
+    assert(alice.conflict === true, 'and the live conflict is still surfaced');
+
+    const flushed = await backend.flush();
+    assert(flushed.includes('platform'), 'the platform document was written');
+    assert(flushed.includes('workspaces/alice'), "and alice's workspace");
+    assert(backend.remote.size > 1, 'as separate documents in the remote');
+    return `${flushed.length} documents flushed: ${flushed.join(', ')}`;
+  } finally {
+    setBackend(previous);
+  }
+});
+
+await check('nothing is written when nothing changed', async () => {
+  const backend = createFakeRemoteBackend();
+  const previous = currentBackend();
+  setBackend(backend);
+  try {
+    await backend.hydrate(['platform']);
+    backend.set('data/hosted/platform/registry.json', '{"agents":{}}');
+    assertEqual(await backend.flush(), ['platform'], 'a write flushes its document');
+
+    backend.get('data/hosted/platform/registry.json');
+    assertEqual(await backend.flush(), [], 'a read flushes nothing');
+    return 'only dirty documents are written back';
+  } finally {
+    setBackend(previous);
+  }
+});
+
+await check('a request hydrates the platform document and one workspace, never more', () => {
+  assertEqual(documentsFor(null), ['platform'], 'before the caller is known, only the platform document');
+  assertEqual(documentsFor('alice'), ['platform', 'workspaces/alice'], 'then their own workspace');
+  assert(!documentsFor('alice').includes('workspaces/bob'), "and never somebody else's");
+  return 'a hosted process holds only the workspace it was asked about';
+});
+
 // ──────────────────── THE BOARDS, AS SERVED PAGES ────────────────────
 phase('The two boards a person can open, and the API behind them');
 
