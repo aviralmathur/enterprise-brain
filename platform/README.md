@@ -152,7 +152,7 @@ ui/                     the boards themselves. Three files, no build step.
 kit/skills/             what an employee installs — six skills, one file each
 spec/contracts.md       the Phase 0 contracts
 workspace.mjs           storage ownership: platform vs employee
-acceptance/run.mjs      67 checks, one per exit test or decision
+acceptance/run.mjs      68 checks, one per exit test or decision
 wire.mjs                buildPlatform() and buildFleet()
 serve.mjs               start the host
 ```
@@ -250,7 +250,7 @@ fields are still absent, so the deferral stays honest.
 
 ## What the acceptance suite proves
 
-67 checks, grouped by the phase whose exit test they are.
+68 checks, grouped by the phase whose exit test they are.
 
 | Phase | Proves |
 |---|---|
@@ -259,7 +259,7 @@ fields are still absent, so the deferral stays honest.
 | 3 | onboarding takes a manifest and a review and no platform code; scope review blocks org-wide over a service account; the same agent publishes as platform-internal; retiring marks outputs stale; the board is still thin |
 | 4 | a fleet consumes on first run with zero manual grants; an ungranted invoke is refused by the gateway; **disabling the local check changes nothing**; approve is the publish gate; nobody drives someone else's board |
 | 5 | granted invokes, identical ungranted refused, both audited; every vendor write terminates at a human; the gateway sheds rather than passing a stampede; revocation is immediate; the boards share only the grant request |
-| 6 | status comes from a check that can fail; **a host ships with gates registered, and the seeded world shows both a pass with its evidence and a kind that stayed unverified**; telemetry surfaces unused agents; conflicting answers are surfaced, never resolved |
+| 6 | every invocable agent has an adapter behind it; status comes from a check that can fail; **a host ships with gates registered, and the seeded world shows both a pass with its evidence and a kind that stayed unverified**; telemetry surfaces unused agents; conflicting answers are surfaced, never resolved |
 | Mission Control | an item carries a lane, a kind and a work status; a lane must be a registered agent; a proposal without concrete actions is refused; **a verdict on a plan publishes nothing, a verdict on a candidate publishes exactly one output**; a proposal cannot be decided twice; a field change is an entry and cannot be forged; park and archive are both lossless; every write bumps a revision; what waits on me and what waits on an agent are two different queues; both boards speak the same thread grammar |
 | Workspaces | employee and platform storage are separate trees; two employees never share a file; tool selection sorts harness from enterprise; the descriptor names all three endpoints; the URL link behaves identically to the direct one; **the URL route cannot be walked to read someone else's request** |
 | Boards | both boards and the landing page are served as pages; a page needs no token and bakes none in; **the two API surfaces refuse each other's tokens**; the API needs a live token exactly as the endpoints do; a board's items carry a lane and a work status and its two queues stay separate; the local token list is off by default and never answers off the loopback interface |

@@ -104,4 +104,53 @@ export const copilot = adapter({
   },
 });
 
-export const all = { servicenow, agentforce, copilot };
+// The finance warehouse behind the revenue desk. A service account, which is
+// exactly why the agent in front of it has to be narrowly scoped: everybody on
+// its access list would otherwise see everything the account can see. Figures
+// are invented.
+export const warehouse = adapter({
+  system: 'warehouse',
+  auth_mode: 'service_account',
+  reads: ['revenue.total', 'revenue.by_stream'],
+  writes: [],
+  fixtures: {
+    'revenue.total': {
+      kind: 'metric',
+      ref: 'fct_revenue',
+      body: { subject: 'q3_revenue', value: 4_180_000, unit: 'USD', period: 'Q3' },
+      ttl_seconds: 86_400,
+    },
+    'revenue.by_stream': {
+      kind: 'metric_breakdown',
+      ref: 'fct_revenue_streams',
+      body: {
+        subject: 'q3_revenue_by_stream',
+        value: { new_business: 1_240_000, renewals: 2_010_000, services: 810_000, other: 120_000 },
+      },
+      ttl_seconds: 86_400,
+    },
+  },
+});
+
+// A delegated connector: it acts as the calling employee, so it can legitimately
+// return a different answer to a different caller and needs no service account.
+// That is why the agent in front of it may be org-wide.
+export const people = adapter({
+  system: 'people',
+  auth_mode: 'delegated',
+  reads: ['headcount.summary'],
+  writes: [],
+  fixtures: {
+    'headcount.summary': (args, ctx) => ({
+      kind: 'headcount',
+      ref: 'HRIS-ROLLUP',
+      body: {
+        subject: args.org ?? 'all',
+        value: { billable: 412, bench: 38, open_reqs: 17, viewer: ctx.employee },
+      },
+      ttl_seconds: 43_200,
+    }),
+  },
+});
+
+export const all = { servicenow, agentforce, copilot, warehouse, people };

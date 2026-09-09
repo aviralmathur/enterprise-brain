@@ -879,6 +879,26 @@ await check('a deployment ships with gates, and the seeded world proves both out
   return `${byStatus.verified} verified, ${byStatus.unverified} unverified: "${passed.status_evidence.evidence}"`;
 });
 
+await check('every invocable agent has its connector wired', async () => {
+  const { seedWorld, DIRECTORY: SEED_DIRECTORY } = await import('../seed.mjs');
+  const w = world({ idp: SEED_DIRECTORY });
+  await seedWorld(w, { baseUrl: 'http://localhost' });
+
+  // An agent a manifest says is invocable, with no adapter behind it, refuses
+  // every call at the last possible moment with a message about plumbing. The
+  // registry and the connector set have to agree, and nothing else checks that.
+  const orphans = [];
+  for (const a of w.registry.all()) {
+    if (!a.invocable) continue;
+    const system = a.connectors?.[0]?.system;
+    if (!system || !w.connectors[system]) orphans.push(`${a.id} -> ${system ?? 'no connector declared'}`);
+  }
+  assertEqual(orphans, [], 'an invocable agent with no adapter behind it');
+
+  const wired = w.registry.all().filter((a) => a.invocable).map((a) => a.id);
+  return `${wired.join(', ')} all have an adapter`;
+});
+
 // ──────────────────── THE BOARDS, AS SERVED PAGES ────────────────────
 phase('The two boards a person can open, and the API behind them');
 
