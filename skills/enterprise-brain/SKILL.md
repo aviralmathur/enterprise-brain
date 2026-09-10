@@ -130,10 +130,14 @@ them. Keep the canonical text in `how-we-work.md`; the essentials:
   to the principal or the tracker, not the recipient.
 - **Verify before asserting; quote the source.** Read fresh; never carry a prior
   paraphrase as fact.
+- **Log every action to the board as it completes** — anything with an effect outside the
+  chat window. Memory holds what is true; the board holds what was done. The board is
+  **not** loaded for an agent the way memory is, so a durable fact left only on the board
+  is invisible to the next session — it goes to both (§4.4).
 
 > Do not re-derive these here — if you have the orchestrator-agent-kit, `how-we-work.md`
-> is its `_shared/how-we-work.md`. This kit's contribution is the two sections that kit
-> does not have: **routing (§5)** and **memory (§4)**.
+> is its `_shared/how-we-work.md`. This kit's contribution is the sections that kit does
+> not have: **routing (§5)**, **memory (§4)**, and the **board/memory split** above.
 
 ---
 
@@ -207,6 +211,13 @@ The whole point of namespacing is that an agent stops loading the other agents' 
 - **Provenance stays.** Keep `modified` and the origin session id; a memory reflects what
   was true when written. If it names a file, flag or figure, verify it still holds before
   acting on it.
+- **Memory is not the action log, and the board is not memory.** What was done goes to the
+  board as it happens; what must still be true in a later session goes here. The asymmetry
+  is the read path (§4.3): this store is loaded for every session automatically, the board
+  is not. So a fact discovered *while* acting needs **both** — a board entry for the
+  record, a memory file so the next session inherits it without being told. Writing only
+  the board entry fails silently: the work looks logged, and tomorrow's session starts
+  from the older, wrong fact.
 
 ### 4.5 · The budget
 
@@ -364,6 +375,8 @@ specifically about running a *fleet*:
 - [ ] Add the `owner:` field to your memory frontmatter going forward (§4.2).
 - [ ] Wire agents into the roster + routing one at a time (§5.4). Resist doing all at once.
 - [ ] Set and write down the `_shared/` budget number (§4.5).
+- [ ] Point `{{BOARD}}` at your tracker's log command, or omit it — and either way settle
+      what goes to the board versus what goes to memory (§4.4) before the first agent runs.
 - [ ] Adopt the orchestrator-agent-kit for each agent's behaviour — this kit does not
       repeat it.
 - [ ] Leave the old flat store in place; migrate lazily (§4.6). Do not big-bang sort it.
