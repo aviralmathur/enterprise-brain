@@ -55,8 +55,10 @@ cd enterprise-brain
 where charters and memory live, the librarian's name, an optional board command), then:
 
 - fills the placeholders and writes your **control plane** to `~/agents/_control/`
-  (`roster`, `routing`, `how-we-work`, `who`, `environment`),
-- scaffolds your **memory tree** (`_shared/`, the librarian's folder, a sectioned `MEMORY.md`),
+  (`roster`, `routing`, `how-we-work`, `who`, `environment`, `memory-model`),
+- scaffolds your **memory tree** (`_shared/`, `_unassigned/`, the librarian's folder, a
+  sectioned `MEMORY.md`) — **an existing `MEMORY.md` is never overwritten**, so it is safe to
+  run over a store you already have,
 - and — if you give it a skills dir — copies and fills the two **skills** into it.
 
 It runs non-interactively too (for CI or scripting):
@@ -76,10 +78,32 @@ store without moving a file on day one** (the lazy-migration path, §4.6).
 1. `cp -r skills/enterprise-brain skills/cerebro ~/.claude/skills/`
 2. Fill the placeholders (`{{BRAIN}}`, `{{PRINCIPAL}}`, `{{ORG}}`, `{{MEM_ROOT}}`,
    `{{AGENTS_ROOT}}`) — see §0 of the enterprise-brain SKILL.md.
-3. `mkdir -p ~/agents/_control && cp skills/enterprise-brain/templates/{roster,routing,how-we-work,who,environment}.md ~/agents/_control/`
+3. `mkdir -p ~/agents/_control && cp skills/enterprise-brain/templates/{roster,routing,how-we-work,who,environment,memory-model}.md ~/agents/_control/`
 4. Create the memory tree (a folder per agent + a small shared core + a sectioned `MEMORY.md`) — §4.
 5. Wire your agents in **one at a time** (§5.4).
 </details>
+
+## Check the fleet against itself
+
+Once it is running — and every time you add or retire an agent — run:
+
+```bash
+./validate.sh
+```
+
+It asserts the control plane is complete; every roster row has a routing entry and a memory
+namespace, **and the reverse** (a namespace folder with no roster row is a retired agent still
+on disk); every `owner:` resolves to a real agent or `shared`; `_shared/` is inside its budget,
+and that a budget exists at all; and every `[[wikilink]]` lands. Exit 0 when clean, 1 on any
+error, so it drops straight into CI or a pre-commit hook.
+
+```bash
+SKILLS_DIR=~/.claude/skills ./validate.sh   # also catch a skill that never got substituted
+./validate.sh --example                     # run it against the reference fleet below
+```
+
+Every check corresponds to a defect that was once live in this repo — see
+[`KNOWN-ISSUES.md`](KNOWN-ISSUES.md).
 
 See [`example/`](example/) for a filled-in reference to copy from.
 

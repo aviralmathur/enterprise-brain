@@ -48,10 +48,10 @@ Search-and-replace before first use.
 
 | Placeholder | What it is | Example |
 |---|---|---|
-| `{{BRAIN}}` | The control plane's own name — the thing you address to route or ask about the org. | `Cerebro` |
+| `{{BRAIN}}` | The control plane's own name — the thing you address to route or ask about the org. | `Jarvis` |
 | `{{PRINCIPAL}}` | Who the fleet works for, and their real title. | `Jane Doe, VP Engineering` |
 | `{{ORG}}` | The organisation. Draws the internal/external line that governs signing. | `Acme Corp` |
-| `{{AGENT}}` | Any specialist agent's name (used in templates). | `Batman` |
+| `{{AGENT}}` | Any specialist agent's name (used in templates). | `Athena` |
 | `{{BOARD}}` | Command to log to your shared tracker, or omit if none. | `node ~/board/thread.mjs` |
 | `{{MEM_ROOT}}` | Absolute path to the memory tree root (§4). | `~/.claude/memory` |
 | `{{AGENTS_ROOT}}` | Absolute path where charters live. | `~/agents` |
@@ -90,7 +90,7 @@ Four rules hold this together:
 
 ## 2 · The control plane (`_control/`)
 
-Five files. Copy them from `templates/` and keep them small. Together they are what the
+Six files. Copy them from `templates/` and keep them small. Together they are what the
 brain reads first on any routing or org question.
 
 | File | Holds | The failure it prevents |
@@ -100,6 +100,7 @@ brain reads first on any routing or org question.
 | `how-we-work.md` | Fleet-wide operating rules (§3). Bind every agent. | A rule that lives in one charter and nowhere else. |
 | `who.md` | The people who must never be misplaced — role, channel, the thing that gets them wrong. | A leader's message batched into a group line. |
 | `environment.md` | Machine/tool constraints that cost an hour each when rediscovered. | Relearning the same gotcha per agent. |
+| `memory-model.md` | The runtime memory contract (§4 in short form): layout, `owner:` values, read/write path, the budget number. | Each agent inventing its own answer to "where does this note go?" |
 
 **`roster.md` is the source of truth for identity.** Each agent's row names the persona it
 signs outbound work as — because a fleet often spans more than one identity (a work org
@@ -198,6 +199,13 @@ The whole point of namespacing is that an agent stops loading the other agents' 
 - `_unassigned/` is loaded by everyone until it is emptied — that is the cost that makes
   people finish the migration.
 
+> **Discipline, not a mechanism.** Per-file isolation is real — an agent never opens another
+> agent's notes. *Section*-scoped loading of `MEMORY.md` is not: it is one file and it loads
+> whole, so "reads only its own section" is a rule the agent follows, not something the loader
+> guarantees. Consequence: budget the **whole index**, not just `## Shared` (§4.5). If you need
+> the isolation to be real, split the index into `_shared/INDEX.md` + `<agent>/INDEX.md` — at
+> the cost of the single browsable index, which is usually the better thing to keep.
+
 ### 4.4 · Write path — who may write where
 
 - An agent **writes, updates and deletes only within its own namespace**, and may
@@ -224,7 +232,12 @@ The whole point of namespacing is that an agent stops loading the other agents' 
 `_shared/` is the always-on tax — it loads on every session of every agent. **Cap it**
 (a hard number you will actually enforce — e.g. the `_shared/` files ≤ 20 KB total, or the
 `## Shared` index ≤ 25 lines). When it is full, adding means demoting something into an
-agent namespace. Per-agent namespaces are not capped, but each is subject to periodic
+agent namespace.
+
+**Write the number down** — a cap you cannot point at is not a cap. It lives in two places,
+both filled by `init.sh` from the `BUDGET` prompt: `_control/memory-model.md` § Budget, and
+the `## Shared` header comment of `MEMORY.md`. Budget the *whole* index too, not only the
+`## Shared` section — `MEMORY.md` is one file and loads whole regardless of lane (§4.3). Per-agent namespaces are not capped, but each is subject to periodic
 consolidation (merge duplicates, prune stale, fix the index) — run it per agent, not
 across the whole store, so the job stays small.
 
@@ -239,7 +252,7 @@ You do not stop the world to get here. The flat `MEMORY.md` keeps loading the en
 3. **Re-file on touch.** When you next read or update an old flat memory, give it an
    `owner:` and move it into the right namespace. Only files you were already touching.
 4. **Infer owner** when re-filing: agent name in the slug/description → that agent;
-   identity / environment / people / fleet-wide rule → `fleet`; a topic clearly in one
+   identity / environment / people / fleet-wide rule → `shared`; a topic clearly in one
    lane → that agent; genuinely unclear → `_unassigned/` (still loaded globally, so
    nothing is lost) until triaged.
 5. **The index grows sections, not churn.** `MEMORY.md` gains a `## Shared` and per-agent
@@ -369,12 +382,15 @@ specifically about running a *fleet*:
 ## 7 · Adoption checklist
 
 - [ ] Replace the placeholders (§0).
-- [ ] Create `_control/` from `templates/` — roster, routing, how-we-work, who, environment.
+- [ ] Create `_control/` from `templates/` — roster, routing, how-we-work, who, environment,
+      memory-model.
 - [ ] Create the memory tree (§4.1): `_shared/`, `_unassigned/`, a folder per agent, and a
       sectioned `MEMORY.md`.
 - [ ] Add the `owner:` field to your memory frontmatter going forward (§4.2).
 - [ ] Wire agents into the roster + routing one at a time (§5.4). Resist doing all at once.
-- [ ] Set and write down the `_shared/` budget number (§4.5).
+- [ ] Set the `_shared/` budget number. It is written in two places, both filled by
+      `init.sh`: `_control/memory-model.md` § Budget, and the `## Shared` header comment in
+      `MEMORY.md` (§4.5).
 - [ ] Point `{{BOARD}}` at your tracker's log command, or omit it — and either way settle
       what goes to the board versus what goes to memory (§4.4) before the first agent runs.
 - [ ] Adopt the orchestrator-agent-kit for each agent's behaviour — this kit does not

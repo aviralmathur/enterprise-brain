@@ -297,16 +297,16 @@ Honest list, in the order they would bite.
    separate files, which is the right shape, but nothing stops a process with
    filesystem access from reading another workspace. Real isolation is per-tenant
    storage with its own credentials.
-5. **The boards are single-file pages with no tests of their own.** They are
+4. **The boards are single-file pages with no tests of their own.** They are
    thin clients over an API that is checked thoroughly, and every action they
    take is reachable with `curl`, but nothing exercises the rendering itself. A
    broken page would not fail the suite.
-6. **The host speaks plain HTTP.** Fine behind a proxy that terminates TLS and
+5. **The host speaks plain HTTP.** Fine behind a proxy that terminates TLS and
    rate-limits by IP, which is what a Vercel deployment gives it; not fine
    exposed directly.
-7. **Load shedding is a per-minute rate limit and an in-flight cap**, and the
+6. **Load shedding is a per-minute rate limit and an in-flight cap**, and the
    counters are per-process. Real shedding needs a queue with priorities and shared
    state across instances.
-8. **`conflicts()` compares `body.value` by identity.** Real conflict detection
+7. **`conflicts()` compares `body.value` by identity.** Real conflict detection
    needs per-kind comparators.
-9. **Subscriptions (component 16) are still not built.**
+8. **Subscriptions (component 16) are still not built.**
