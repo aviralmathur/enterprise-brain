@@ -1,5 +1,9 @@
 # Enterprise Brain
 
+[![CI](https://github.com/aviralmathur/enterprise-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/aviralmathur/enterprise-brain/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![node: >=18](https://img.shields.io/badge/node-%3E%3D18-blue.svg)](platform/package.json)
+
 A **control plane for a fleet of AI-employee agents**, packaged as two Claude Code skills.
 It sits *above* a single chief-of-staff orchestrator and answers the two questions a growing
 fleet forces: **"who should do this?"** (routing) and **"where does what each agent knows

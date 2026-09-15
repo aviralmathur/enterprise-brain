@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node serve.mjs",
     "seed": "node serve.mjs --seed",
+    "test": "node acceptance/run.mjs",
     "accept": "node acceptance/run.mjs",
     "deploy": "vercel deploy --prod"
   },

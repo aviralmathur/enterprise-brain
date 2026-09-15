@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # GitHub Actions used by the CI workflow.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  # The platform reference implementation. It has no runtime dependencies; the one
+  # optional dependency (@vercel/blob, used only by the deploy path) is watched here.
+  - package-ecosystem: npm
+    directory: "/platform"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

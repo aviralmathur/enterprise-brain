@@ -1,0 +1,35 @@
+name: Bug report
+description: Something in the kit or the platform behaves wrong
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which tree?
+      options:
+        - platform/ (the enterprise reference implementation)
+        - skills/ (the personal control-plane kit)
+        - init.sh / validate.sh (setup + validation)
+        - docs / README
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        Commands or calls. For a platform integrity bug, the sequence of ledger /
+        gateway / board calls that shows it — ideally as a failing acceptance check.
+      render: shell
+  - type: input
+    id: node
+    attributes:
+      label: Node version (for platform/ issues)
+      placeholder: v20.x
