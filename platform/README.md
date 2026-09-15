@@ -8,6 +8,22 @@ rule in [`spec/contracts.md`](spec/contracts.md) is enforced by real code and
 proved by a runnable check. Four things are seams rather than integrations, and
 are marked as such below.
 
+Two boards, because there are two owners — an employee's private cockpit and the
+platform team's governance desk, neither able to read the other's. Both are seeded
+and openable; see the [**walkthrough**](docs/walkthrough.md).
+
+| Fleet Mission Control | Platform Mission Control |
+|---|---|
+| [![Fleet Mission Control](docs/img/fleet-mission-control.png)](docs/walkthrough.md) | [![Platform Mission Control](docs/img/platform-mission-control.png)](docs/walkthrough.md) |
+
+The one thing that makes this a brain and not a wiki — correct an output and
+everything derived from it goes stale by itself, and a derived output's audience is
+computed, not declared — is a 20-second run:
+
+```bash
+node demo-cascade.mjs    # the cascade and computed scope, on real ledger state
+```
+
 ```bash
 node serve.mjs --seed   # the two boards, seeded, with tokens printed
 node demo.mjs           # narrated end-to-end walkthrough

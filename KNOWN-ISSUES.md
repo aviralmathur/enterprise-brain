@@ -21,11 +21,13 @@ notes** — only Alfred's charter is filled. A worked **cross-lane handoff** (Sc
 question → routes to Athena → Athena answers in her own namespace) would demonstrate §5.3 far
 better than a third filled charter.
 
-### 2 · `docs/usage.gif` is stale
-The README's hero GIF records an `init.sh` that no longer exists: it shows the removed
-"Librarian agent name" prompt, lacks the `BUDGET` prompt, and its memory-tree line omits
-`_unassigned/`. Content is otherwise fine (Jarvis / Jane Doe / Acme Corp — verified frame by
-frame, nothing real in it). Needs re-recording whenever the prompt sequence next changes.
+### 2 · `docs/usage.gif` is stale — pulled from the README 2026-09-15
+The hero GIF records an `init.sh` that no longer exists: it shows the removed "Librarian agent
+name" prompt, lacks the `BUDGET` prompt, and its memory-tree line omits `_unassigned/`. Rather
+than ship a wrong hero, the README no longer references it (the platform board screenshots are
+the hero now). The file is still in the tree; re-record it against the current `init.sh` prompt
+sequence, then restore the reference — or delete it. Content is otherwise fine (Jarvis / Jane
+Doe / Acme Corp, nothing real in it).
 
 ### 3 · Concurrency is unhandled
 Two sessions writing the same memory file last-write-wins. No locking, no merge. Low severity

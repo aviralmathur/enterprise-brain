@@ -29,6 +29,9 @@ jobs:
       - name: demo walkthrough runs clean
         working-directory: platform
         run: node demo.mjs
+      - name: cascade demo runs clean
+        working-directory: platform
+        run: node demo-cascade.mjs
 
   # The skills control-plane kit: the reference fleet must validate against itself.
   validate-kit:
@@ -51,11 +54,12 @@ jobs:
       - name: grep shipped surfaces
         run: |
           set -euo pipefail
-          if grep -rniE 'batman|captain.?america|photon|shuri|heimdall|tenarai|infogain' skills/ platform/; then
+          # -I skips binary files (screenshots), so an image can never false-trip the gate.
+          if grep -rIniE 'batman|captain.?america|photon|shuri|heimdall|tenarai|infogain' skills/ platform/; then
             echo "::error::a real fleet/org name leaked into a shipped surface"
             exit 1
           fi
-          if grep -rniE 'aviral' skills/ platform/ | grep -viE 'aviralmathur/(enterprise-brain|orchestrator)'; then
+          if grep -rIniE 'aviral' skills/ platform/ | grep -viE 'aviralmathur/(enterprise-brain|orchestrator)'; then
             echo "::error::an author name leaked into a shipped surface"
             exit 1
           fi

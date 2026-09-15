@@ -12,21 +12,26 @@ actually live?"** (per-agent memory).
 It is the companion to the [orchestrator-agent-kit](https://github.com/aviralmathur/orchestrator-agent-kit):
 that kit teaches how *one* agent behaves; this one builds the *org* those agents sit on.
 
-![One-command setup with ./init.sh](docs/usage.gif)
-
 > **Two things live in this repo now.** The skills below are the *personal* control
 > plane — one principal, one fleet, on one machine. [`platform/`](platform/) is the
 > *enterprise* build: many employee fleets, a platform-owned enterprise fleet, a
 > shared output ledger between them, and a Mission Control for each side that you
-> can actually open:
+> can actually open — an employee's private cockpit and the platform team's
+> governance desk:
+>
+> | Fleet Mission Control | Platform Mission Control |
+> |---|---|
+> | [![Fleet Mission Control](platform/docs/img/fleet-mission-control.png)](platform/docs/walkthrough.md) | [![Platform Mission Control](platform/docs/img/platform-mission-control.png)](platform/docs/walkthrough.md) |
 >
 > ```bash
 > cd platform && node serve.mjs --seed   # then open /fleet and /platform
+> node platform/demo-cascade.mjs         # or just watch the cascade in 20s
 > ```
 >
 > They share a name and an idea; they are separate codebases with separate
 > audiences. Start with the skills if you run your own fleet; start with
-> [`platform/README.md`](platform/README.md) if you are standing this up for an
+> [`platform/README.md`](platform/README.md) — or the
+> [walkthrough](platform/docs/walkthrough.md) — if you are standing this up for an
 > organisation.
 
 ## What's in here
