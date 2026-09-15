@@ -41,6 +41,35 @@ knowledge layer is a third tier* plus a pointer; the contract belongs to the lib
 
 ## Resolved
 
+### ✅ platform · five cross-tenant integrity defects — fixed 2026-09-15
+An adversarial review of `platform/` found five ways an unvetted employee fleet could reach
+across the tenant boundary through a feature that trusted its input. Each is now fixed, and each
+fix ships with an acceptance check that was **red before it** — see the `Adversarial —
+cross-tenant integrity` phase in `platform/acceptance/run.mjs` (suite grew 74 → 85).
+
+- **B1 · cross-tenant supersede.** `ledger.publish()` honoured `supersedes` with no ownership
+  check, so a fleet-private output could stale an enterprise output and cascade-stale every
+  descendant — spec §4 (asymmetric trust) broken by the headline feature. Now a supersede is
+  refused unless the publisher's fleet owns the target, and the refusal names the owner to route
+  to. `grep -n "supersede refused" platform/brain/ledger.mjs`.
+- **B2 · deriving from unreadable inputs.** `computeScope()` never checked that a producer could
+  read the parents it declared, so a fleet could inherit a wider scope (or reference confidential
+  data) by naming an output it had no access to. The readability check reuses the consume path,
+  wired in `platform/wire.mjs`. `grep -n "canConsume" platform/brain/ledger.mjs platform/wire.mjs`.
+- **B3 · the scope lattice widened.** `intersect()` returned a fleet scope unconditionally when a
+  fleet met a list, *adding* a viewer instead of intersecting. A fleet scope is now the singleton
+  `{ owner }`, and a property test compares every computed audience against a brute-force
+  intersection. `grep -n "fleetMeets" platform/brain/scope.mjs`.
+- **B4 · hosted storage silently lost writes.** The Blob backend swallowed read failures into an
+  empty document (which the next flush wrote back over live data), and had no concurrency guard.
+  A failed load now throws; a flush uses optimistic concurrency and refuses a stale write. Still
+  read-check-write, not atomic CAS — the README and DEPLOY now say "single-writer until real CAS".
+  `grep -n "optimistic concurrency\|write conflict" platform/brain/store.mjs`.
+- **B5 · unknown vendor ops skipped approval.** The gateway classified any op not in `writes` as a
+  read, so an unclassified op reached a vendor with no human approval — fail-open on the injection
+  break (spec §6). Now default-deny: an op is a read only if explicitly listed.
+  `grep -n "Default-deny" platform/platform-fleet/gateway.mjs`.
+
 ### ✅ Author's real agent names leaked into the shipped skills — removed 2026-09-08
 The skills carried example folder names taken from the author's own private fleet rather than
 from `example/`: `batman/`, `captain-america/` and `photon/` as illustrative lane folders

@@ -289,9 +289,16 @@ A phase that cannot pass its check has not shipped, whatever the code says.
 
 Honest list, in the order they would bite.
 
-1. **Single-process, file-backed.** The ledger is JSONL folded in memory. Correct
-   and inspectable; not concurrent. A real deployment needs a database with the
-   same append-only semantics — the `Ledger` interface is what to preserve.
+1. **Concurrency is optimistic, not atomic.** The ledger is JSONL folded in
+   memory; correct and inspectable, but a single process. The hosted path (one
+   Vercel Blob document per workspace) is *more* exposed to concurrent writers,
+   not less — two invocations that both hydrate, mutate and write back would race.
+   The document store now guards this with optimistic concurrency: a flush re-reads
+   the document and refuses if its revision moved since the request hydrated, so a
+   lost append becomes a loud conflict instead of silent data loss. That is
+   read-check-write, which narrows the race rather than closing it. A real
+   deployment needs a store with atomic compare-and-set (or a database with the
+   same append-only semantics) — the `Ledger` interface is what to preserve.
 2. **No real IAM or vendor tenancy.** See the seams above.
 3. **Fleet-board privacy is a path split plus an owner check.** Two employees have
    separate files, which is the right shape, but nothing stops a process with

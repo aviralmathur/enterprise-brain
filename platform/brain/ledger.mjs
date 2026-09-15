@@ -61,10 +61,24 @@ export class Ledger {
     if ((output.derived_from ?? []).length) {
       const parents = output.derived_from.map((id) => this.get(id));
       const missing = output.derived_from.filter((id, i) => !parents[i]);
-      if (missing.length) return { scope: NOBODY, basis: `unknown input(s): ${missing.join(', ')}` };
+      if (missing.length) {
+        return { scope: NOBODY, basis: `unknown input(s): ${missing.join(', ')}`, error: `cannot derive from unknown input(s): ${missing.join(', ')}` };
+      }
+      // B2: a producer may only derive from inputs it can itself read. Without this,
+      // a fleet names an output it has no access to as a parent and either inherits
+      // its (wider) scope or references confidential data it never had — laundering
+      // by the front door. The readability check reuses the consume path (D5 + D7).
+      if (this.resolvers.canConsume) {
+        const who = output.producer?.identity;
+        const unreadable = parents.filter((p) => !this.resolvers.canConsume(who, p));
+        if (unreadable.length) {
+          const ids = unreadable.map((p) => p.id).join(', ');
+          return { scope: NOBODY, basis: `producer cannot read input(s): ${ids}`, error: `producer ${who} cannot read derived_from input(s): ${ids}` };
+        }
+      }
       const scopes = parents.map((p) => p.scope);
       return {
-        scope: intersectAll(scopes),
+        scope: intersectAll(scopes, { ownerOf: this.resolvers.fleetOwner }),
         basis: `intersection of ${scopes.length} input(s); narrowest was ${describe(narrowest(scopes))}`,
       };
     }
@@ -85,7 +99,10 @@ export class Ledger {
   // not going to get it.
   previewScope(candidate) {
     if (!candidate || !candidate.producer) return { ok: false, errors: ['producer is required'] };
-    const { scope, basis } = this.computeScope(candidate);
+    const { scope, basis, error } = this.computeScope(candidate);
+    // Surface a would-be refusal on the preview too, so a board shows the reason
+    // before anyone signs rather than at the moment of publish.
+    if (error) return { ok: false, errors: [error], reason: error, scope_basis: basis };
     return {
       ok: true,
       scope,
@@ -101,8 +118,27 @@ export class Ledger {
     if (errs.length) return { ok: false, errors: errs };
     if (this.get(candidate.id)) return { ok: false, errors: [`output ${candidate.id} already published`] };
 
+    // B1: supersede is an owner-only operation. Only the producer of the target
+    // output (the same fleet) may replace it. Without this, an unvetted employee
+    // fleet supersedes an enterprise output and the cascade stales it and every
+    // descendant — one injected fleet becoming an enterprise-wide fact, which is
+    // exactly what the asymmetric-trust contract (spec §4) forbids.
+    if (candidate.supersedes) {
+      const target = this.get(candidate.supersedes);
+      if (!target) {
+        return { ok: false, errors: [`cannot supersede unknown output ${candidate.supersedes}`], reason: `cannot supersede unknown output ${candidate.supersedes}` };
+      }
+      if (target.producer?.fleet !== candidate.producer?.fleet) {
+        const reason = `supersede refused: ${candidate.producer?.fleet} does not own ${candidate.supersedes} (owned by ${target.producer?.fleet}); route the correction to its owner`;
+        return { ok: false, errors: [reason], reason, route_to: target.producer };
+      }
+    }
+
     const declaredByProducer = candidate.scope ?? null;
-    const { scope, basis } = this.computeScope(candidate);
+    const { scope, basis, error } = this.computeScope(candidate);
+    // A hard scope error (an unreadable or unknown input) refuses the publish
+    // rather than silently narrowing to nobody.
+    if (error) return { ok: false, errors: [error], reason: error };
 
     const record = {
       ...candidate,

@@ -75,6 +75,12 @@ export function buildPlatform({ ws, fresh = false, idp = null, workspaceRoot = n
     },
   });
 
+  // B2: the ledger refuses a derived output whose producer cannot read one of its
+  // inputs. The readability test IS the consume path, so it is wired in here once
+  // `query` exists rather than reimplemented inside the ledger.
+  ledger.resolvers.canConsume = (employeeId, output) =>
+    Boolean(employeeId) && query.canConsume(employeeId, output).ok;
+
   const gateway = new Gateway({ registry, grants, ledger, identity, audit, connectors });
   const telemetry = new Telemetry(audit, registry, ledger);
   const gates = new QualityGates(ledger);

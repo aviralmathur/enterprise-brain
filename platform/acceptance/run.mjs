@@ -5,7 +5,8 @@ import { existsSync, readdirSync } from 'node:fs';
 import { readLines, readDoc } from '../brain/store.mjs';
 import { newOutput } from '../brain/schema.mjs';
 import { assertNoStoredEntitlements } from '../brain/identity.mjs';
-import { describe } from '../brain/scope.mjs';
+import { describe, intersect, intersectAll, fleetScope, listScope, visibleTo } from '../brain/scope.mjs';
+import { createDocumentBackend } from '../brain/store.mjs';
 import { ENTRY_KINDS } from '../brain/board.mjs';
 import {
   world, onboard, manifest, enterpriseOutput,
@@ -1303,6 +1304,182 @@ await check('an internal error never leaks a stack trace', async () => {
   assertEqual(res.status, 500, 'a 500, not a crash');
   assertEqual(res.body, { ok: false, reason: 'internal error' }, 'and nothing about the internals');
   return 'errors are opaque to the caller';
+});
+
+// ─────────────────────── ADVERSARIAL — cross-tenant integrity ───────────────────────
+// Every check below was RED before the Track B fix it names. They are the attacks the
+// original 74 did not think to try: an unvetted fleet reaching across the tenant boundary
+// through a feature — supersede, derived_from, the scope lattice — that trusted its input.
+phase('Adversarial — cross-tenant integrity');
+
+// —— B1: supersedes is an owner-only operation ——
+await check('B1 · an employee fleet cannot supersede an output it does not own', () => {
+  const w = world();
+  onboard(w, manifest({ id: 'fin', connectors: [], scope: { type: 'org' } }));
+  w.fleets.register({ fleet: 'f_mallory', owner: 'sarah', agents: [{ id: 'scraper' }] });
+  enterpriseOutput(w, { id: 'rev_q4', agent: 'fin', subject: 'q4', value: 1000 });
+
+  const res = w.ledger.publish(newOutput({
+    id: 'mallory_rev', kind: 'metric',
+    producer: { fleet: 'f_mallory', agent: 'scraper', identity: 'sarah' },
+    body: { subject: 'q4', value: 0 }, supersedes: 'rev_q4',
+    sources: [{ system: 'gmail', harness: true }],
+  }));
+  assert(!res.ok, 'a cross-fleet supersede must be refused');
+  assertEqual(w.ledger.freshnessOf('rev_q4'), 'fresh', 'the enterprise output must stay live');
+  return res.reason;
+});
+
+await check('B1 · a refused supersede leaves the target and its descendants untouched', () => {
+  const w = world();
+  onboard(w, manifest({ id: 'fin', connectors: [], scope: { type: 'org' } }));
+  w.fleets.register({ fleet: 'f_mallory', owner: 'sarah', agents: [{ id: 'scraper' }] });
+  enterpriseOutput(w, { id: 'rev', agent: 'fin', subject: 'q4', value: 1000 });
+  w.ledger.publish(newOutput({
+    id: 'deck', kind: 'deck', producer: { fleet: 'enterprise', agent: 'fin', identity: 'priya' },
+    body: { subject: 'q4', value: 'x' }, derived_from: ['rev'],
+  }));
+  w.ledger.publish(newOutput({
+    id: 'attack', kind: 'metric', producer: { fleet: 'f_mallory', agent: 'scraper', identity: 'sarah' },
+    body: { subject: 'q4', value: 0 }, supersedes: 'rev', sources: [{ system: 'gmail', harness: true }],
+  }));
+  assertEqual(w.ledger.freshnessOf('rev'), 'fresh', 'target untouched');
+  assertEqual(w.ledger.freshnessOf('deck'), 'fresh', 'descendant untouched');
+});
+
+await check('B1 · a fleet may still supersede its OWN output (regression guard)', () => {
+  const w = world();
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+  w.ledger.publish(newOutput({
+    id: 's1', kind: 'metric', producer: { fleet: 'f_sarah', agent: 'analyst', identity: 'sarah' },
+    body: { subject: 'q4', value: 1 }, sources: [{ system: 'gmail', harness: true }],
+  }));
+  const res = w.ledger.publish(newOutput({
+    id: 's2', kind: 'metric', producer: { fleet: 'f_sarah', agent: 'analyst', identity: 'sarah' },
+    body: { subject: 'q4', value: 2 }, supersedes: 's1', sources: [{ system: 'gmail', harness: true }],
+  }));
+  assert(res.ok, 'a same-fleet supersede is legitimate: ' + (res.errors || []).join('; '));
+  assertEqual(w.ledger.freshnessOf('s1'), 'stale', 'the fleet superseded its own output');
+});
+
+// —— B2: derived_from must be readable by the producer ——
+await check('B2 · a fleet cannot derive from an output its producer cannot read', () => {
+  const w = world();
+  onboard(w, manifest({ id: 'hr', connectors: [], scope: { type: 'list', members: ['raj'] } }));
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'scraper' }] });
+  enterpriseOutput(w, { id: 'raj_only', agent: 'hr', subject: 'comp', value: 42 });
+
+  const res = w.ledger.publish(newOutput({
+    id: 'sarah_leak', kind: 'metric',
+    producer: { fleet: 'f_sarah', agent: 'scraper', identity: 'sarah' },
+    body: { subject: 'comp', value: 'referenced' }, derived_from: ['raj_only'],
+  }));
+  assert(!res.ok, 'deriving from a parent the producer cannot read must be refused');
+  return res.reason;
+});
+
+await check('B2 · deriving from a readable parent still works (regression guard)', () => {
+  const w = world();
+  onboard(w, manifest({ id: 'fin', connectors: [], scope: { type: 'org' } }));
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+  enterpriseOutput(w, { id: 'pub', agent: 'fin', subject: 'q4', value: 1 });
+  const res = w.ledger.publish(newOutput({
+    id: 'derived_ok', kind: 'metric', producer: { fleet: 'f_sarah', agent: 'analyst', identity: 'sarah' },
+    body: { subject: 'q4', value: 2 }, derived_from: ['pub'],
+  }));
+  assert(res.ok, 'an org-readable parent is a legitimate input: ' + (res.errors || []).join('; '));
+});
+
+// —— B3: the scope lattice does not widen on fleet ∩ list ——
+await check('B3 · fleet ∩ list is nobody when the fleet owner is not on the list', () => {
+  const ownerOf = (f) => ({ f_bob: 'bob' }[f] ?? null);
+  const r = intersect(fleetScope('f_bob'), listScope(['carol']), { ownerOf });
+  assertEqual(describe(r), 'nobody', 'bob is not on the list, so the intersection is empty');
+});
+
+await check('B3 · fleet ∩ list is the fleet when the owner IS on the list', () => {
+  const ownerOf = (f) => ({ f_bob: 'bob' }[f] ?? null);
+  const r = intersect(fleetScope('f_bob'), listScope(['bob', 'carol']), { ownerOf });
+  assertEqual(describe(r), 'fleet-private (f_bob)', 'the owner is on the list, so the fleet survives');
+});
+
+await check('B3 · property: computed intersection audience == brute-force set intersection', () => {
+  // The check that would have caught B3 on its own. For random scopes, the audience
+  // intersectAll computes must equal the set of employees visible to EVERY input.
+  const EMP = ['a', 'b', 'c', 'd'];
+  const owners = { f_a: 'a', f_b: 'b' };
+  const ownerOf = (f) => owners[f] ?? null;
+  const pool = [
+    { type: 'org' },
+    listScope(['a', 'b']), listScope(['b', 'c']), listScope(['c', 'd']), listScope([]),
+    fleetScope('f_a'), fleetScope('f_b'),
+  ];
+  const rand = (seed) => pool[seed % pool.length];
+  let mismatches = 0;
+  for (let i = 0; i < pool.length; i++) {
+    for (let j = 0; j < pool.length; j++) {
+      for (let k = 0; k < pool.length; k++) {
+        const scopes = [rand(i), rand(j + 1), rand(k + 2)];
+        const computed = intersectAll(scopes, { ownerOf });
+        const computedAud = EMP.filter((e) => visibleTo(computed, e, ownerOf)).sort();
+        const truth = EMP.filter((e) => scopes.every((s) => visibleTo(s, e, ownerOf))).sort();
+        if (JSON.stringify(computedAud) !== JSON.stringify(truth)) mismatches += 1;
+      }
+    }
+  }
+  assertEqual(mismatches, 0, 'every computed audience matches the brute-force intersection');
+  return `${pool.length ** 3} scope triples checked, 0 mismatches`;
+});
+
+// —— B4: hosted storage does not silently swallow a read failure ——
+await check('B4 · a document backend surfaces a load failure instead of reporting empty', async () => {
+  // The blob backend used to catch a read error and return { files: {} } — which the
+  // next write then flushes back over live data. A failed load must propagate.
+  const backend = createDocumentBackend({
+    load: async () => { throw new Error('store unreachable'); },
+    save: async () => {},
+  });
+  let threw = false;
+  try { await backend.hydrate('platform'); } catch { threw = true; }
+  assert(threw, 'a failed load must throw, never degrade to an empty document');
+});
+
+await check('B4 · two interleaved writers to one document do not silently lose an append', async () => {
+  // Documents the lost-write hazard the hosted path is exposed to. With optimistic
+  // concurrency, the second flush over a document that changed under it is rejected
+  // rather than overwriting the first writer's append.
+  const store = new Map();
+  const mk = () => createDocumentBackend({
+    load: async (n) => (store.has(n) ? JSON.parse(store.get(n)) : { files: {} }),
+    save: async (n, doc) => { store.set(n, JSON.stringify(doc)); },
+  });
+  const A = mk(); const B = mk();
+  await A.hydrate('platform'); await B.hydrate('platform');
+  A.append('platform/ledger.jsonl', 'A\n');
+  B.append('platform/ledger.jsonl', 'B\n');
+  await A.flush();
+  let conflict = false;
+  try { await B.flush(); } catch { conflict = true; }
+  assert(conflict, "B's stale flush must be rejected, not overwrite A's append");
+});
+
+// —— B5: unknown vendor ops are writes by default (approval required) ——
+await check('B5 · a vendor op in neither reads nor writes requires human approval', () => {
+  const w = world();
+  onboard(w, manifest({ id: 'snow', invocable: true, scope: { type: 'list', members: ['sarah'] } }));
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: [{ id: 'analyst' }] });
+  w.grants.issue({
+    subject: { type: 'fleet_agent', fleet: 'f_sarah', agent: 'analyst' },
+    agent: 'snow', expires_at: soon(), approved_by: 'priya',
+  });
+  // 'incident.escalate' is in neither the connector's reads nor its writes.
+  const res = w.gateway.invoke({
+    employee: 'sarah', via: { fleet: 'f_sarah', agent: 'analyst' },
+    target: 'snow', op: 'incident.escalate', args: {},
+  });
+  assert(!res.ok && res.stage === 'approval_required',
+    'an unclassified op must default to needing approval, not silently pass as a read');
+  return res.reason;
 });
 
 process.exit(report() === 0 ? 0 : 1);
