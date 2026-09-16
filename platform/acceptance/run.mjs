@@ -1306,6 +1306,81 @@ await check('an internal error never leaks a stack trace', async () => {
   return 'errors are opaque to the caller';
 });
 
+// ─────────────────────── Org model — a fleet states its own shape ───────────────────────
+// Who reports to whom, and what each lane may and may not do, are declared at
+// registration rather than inferred from an agent's name. The org chart renders
+// exactly this. None of it touches an access decision.
+phase('Org model — a fleet states its own shape');
+
+const SHAPED = [
+  {
+    id: 'chief', purpose: 'triage and the brief', orchestrator: true, reports_to: 'sarah',
+    can: ['Route work to the lane that owns it'], cannot: ['Send anything outward'],
+  },
+  {
+    id: 'analyst', purpose: 'the numbers', reports_to: 'chief',
+    can: ['Quote a figure with its basis'], cannot: ['Commit a date, scope or price'],
+  },
+];
+
+await check('an agent registers with an orchestrator flag, a reporting line and its authority', () => {
+  const w = world();
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: SHAPED });
+  const f = w.fleets.get('f_sarah');
+  const chief = f.agents.find((a) => a.id === 'chief');
+  const analyst = f.agents.find((a) => a.id === 'analyst');
+  assertEqual(chief.orchestrator, true, 'the orchestrator flag survives registration');
+  assertEqual(chief.reports_to, 'sarah', 'the orchestrator reports to the owner');
+  assertEqual(analyst.reports_to, 'chief', 'a specialist reports to the orchestrator');
+  assertEqual(analyst.can, ['Quote a figure with its basis'], 'what the lane may do');
+  assertEqual(analyst.cannot, ['Commit a date, scope or price'], 'and what it may not');
+  return 'one orchestrator, one reporting line, authority stated on both lanes';
+});
+
+await check('the lane registry carries the shape through to the board', () => {
+  const w = world();
+  w.fleets.register({ fleet: 'f_sarah', owner: 'sarah', agents: SHAPED });
+  const lanes = w.fleet('sarah', 'f_sarah').board.laneRegistry();
+  assertEqual(lanes.chief.orchestrator, true, 'the board sees which lane is the orchestrator');
+  assertEqual(lanes.analyst.reports_to, 'chief', 'and the reporting line');
+  assertEqual(lanes.analyst.cannot, ['Commit a date, scope or price'], 'and the authority');
+  return 'the org chart renders from the lane registry, so it renders from this';
+});
+
+await check('an agent registered without a shape gets safe defaults', () => {
+  // The four fields are optional. Omitting them must not break a fleet.
+  const w = world();
+  w.fleets.register({ fleet: 'f_raj', owner: 'raj', agents: [{ id: 'solo', purpose: 'everything' }] });
+  const a = w.fleets.get('f_raj').agents[0];
+  assertEqual(a.orchestrator, false, 'no orchestrator claimed');
+  assertEqual(a.reports_to, null, 'no reporting line claimed');
+  assertEqual(a.can, [], 'no authority claimed');
+  assertEqual(a.cannot, [], 'and no prohibition claimed');
+  return 'undeclared is empty, never undefined — the chart degrades, it does not break';
+});
+
+await check('the shipped seed demonstrates the model it ships', async () => {
+  // The quickstart is what an adopter runs first. If it does not declare a shape,
+  // the org chart has nothing to draw and the feature may as well not exist.
+  const { seedWorld, DIRECTORY: SEED_DIRECTORY } = await import('../seed.mjs');
+  const w = world({ idp: SEED_DIRECTORY });
+  await seedWorld(w, { baseUrl: 'http://localhost' });
+
+  for (const f of w.fleets.all()) {
+    const orchs = f.agents.filter((a) => a.orchestrator);
+    assertEqual(orchs.length, 1, `${f.fleet} declares exactly one orchestrator`);
+    assertEqual(orchs[0].reports_to, f.owner, `${f.fleet}'s orchestrator reports to its owner`);
+    f.agents.filter((a) => !a.orchestrator).forEach((a) => {
+      assertEqual(a.reports_to, orchs[0].id, `${f.fleet}/${a.id} reports to the orchestrator`);
+    });
+    f.agents.forEach((a) => {
+      assert(a.can.length > 0, `${f.fleet}/${a.id} says what it can do`);
+      assert(a.cannot.length > 0, `${f.fleet}/${a.id} says what it cannot do`);
+    });
+  }
+  return `${w.fleets.all().length} seeded fleets, each with an orchestrator and authority on every lane`;
+});
+
 // ─────────────────────── ADVERSARIAL — cross-tenant integrity ───────────────────────
 // Every check below was RED before the Track B fix it names. They are the attacks the
 // original 74 did not think to try: an unvetted fleet reaching across the tenant boundary

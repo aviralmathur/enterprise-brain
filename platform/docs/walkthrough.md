@@ -18,12 +18,12 @@ team runs the light one. Neither can read the other's.
 
 ### Fleet Mission Control — one employee's private cockpit
 
-![Command — the fleet at a glance](img/northwind-command.png)
+![Command — the fleet at a glance](img/fleet-command.png)
 
 **Command** is the landing view: every agent in orbit with what it is carrying, the
 situation counters, and the live signal feed. **Board** is the same work as columns:
 
-![Board](img/northwind-board.png)
+![Board](img/fleet-board.png)
 
 **Group by Status, Owner or Kind**, search, and filter to any set of agents with the colour
 chips — each chip fills solid in that agent's own hue when it is on. Grouped by owner, every
@@ -34,20 +34,25 @@ grouped by owner.
 Clicking a card opens a **drawer** over the board — the item's facts and its full thread —
 rather than pushing the columns around. A column head opens that agent's drawer instead.
 
-The board above is the Northwind Ops fleet (`node northwind.mjs`): the `Reconcile on-time`
-task sits with **Tally**, the `Ardent Freight` note waits on **Relay**.
+Everything above is the shipped seed — no special setup. A second worked example,
+`node northwind.mjs`, seeds a different fleet (an ops team reconciling two disagreeing
+on-time figures) if you want to see the same surface with other data.
 
 ### Org chart — owner, orchestrator, employees
 
-![Org chart](img/northwind-orgchart.png)
+![Org chart](img/fleet-orgchart.png)
 
 The **Org chart** tab is a real reporting tree: the fleet owner (a human) at the top, the
 **orchestrator** (the chief-of-staff agent) beneath, and every other AI employee reporting
 through it. Every node opens that agent's drawer.
 
 Underneath the tree, a card per lane states its **authority** — what it *can* do and, just as
-importantly, what it **cannot**. That comes from `can`/`cannot` declared when the agent is
-registered, so a lane's reach is stated rather than inferred from its name.
+importantly, what it **cannot**. All four fields (`orchestrator`, `reports_to`, `can`,
+`cannot`) are declared when the agent is registered, so a lane's reach is *stated* rather than
+inferred from its name. They are optional and degrade safely: with none declared the chart
+falls back to the first agent and says the authority has not been declared yet. See
+`kit/skills/fleet-setup` for how to declare them, and the `Org model` phase in
+`acceptance/run.mjs` for the checks that hold it together.
 
 Three tabs — **Ledger**, **Agents**, **Access** — are marked *soon* and show a placeholder.
 Their APIs are live and covered by the acceptance suite; only the views are being rebuilt.

@@ -25,12 +25,53 @@ fleet*, so an unregistered agent can never be granted anything.
 platform.fleetRoster.register({
   fleet: 'f_<employee>',
   owner: '<employee>',
-  agents: [{ id: 'analyst', purpose: 'weekly ops read' }],
+  agents: [
+    {
+      id: 'briefer',
+      purpose: 'inbox, briefs and triage — the catch-all',
+      orchestrator: true,          // the lane the others report through
+      reports_to: '<employee>',
+      can: ['Triage the inbox and write the brief', 'Route work to the lane that owns it'],
+      cannot: ['Publish to the ledger without your verdict', 'Commit a date, scope or price'],
+    },
+    {
+      id: 'analyst',
+      purpose: 'weekly ops read',
+      reports_to: 'briefer',
+      can: ['Read enterprise outputs it is on the access list for'],
+      cannot: ['Invoke an enterprise agent without a live grant'],
+    },
+  ],
 });
 ```
 
 The roster is stored on the **platform** side — it is the one shared fact about a
 fleet. Everything else lives in the employee's own workspace.
+
+### State the shape, do not leave it to be inferred
+
+`id` and `purpose` are the minimum. The other four are what make a fleet
+**legible** to anyone who opens its Mission Control, and they are worth filling in:
+
+| Field | What it is |
+|---|---|
+| `orchestrator` | Marks the chief-of-staff lane the others report through. Exactly one per fleet. A single-agent fleet marks that agent. |
+| `reports_to` | The lane (or the owner) this agent reports to. Drives the org chart's tree. |
+| `can` | What this lane is allowed to do. |
+| `cannot` | What it is **not**. |
+
+`can`/`cannot` are the ones people skip and then regret. A lane's authority
+cannot be inferred from its name — "relay" does not tell anyone whether it may
+send without asking first. Writing it down means the org chart *states* the
+boundary instead of leaving the next person to guess it, and it is the same
+boundary the charter is supposed to enforce. Keep each line short and concrete
+("Send only on an explicit per-item instruction"), not aspirational.
+
+All four are optional and default safely: no `orchestrator` anywhere and the org
+chart falls back to the first registered agent; omit `can`/`cannot` and the lane's
+card says its authority has not been declared yet. Nothing about access control
+reads these — the gateway and the ledger are unaffected. They describe the fleet;
+they do not govern it.
 
 ## 2 · Ask which tools they want
 
