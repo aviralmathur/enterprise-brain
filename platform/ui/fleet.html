@@ -674,6 +674,44 @@
   .org-node:has(.org-node-load:not(.idle))::before{ animation:2.6s ease-in-out infinite node-pulse; }
   .org-node.principal:has(.org-node-load:not(.idle))::before{ animation:2.6s ease-in-out infinite signal; }
 
+  /* ---------- coming soon ---------- */
+  .views button.soon{ }
+  .soon-tag{ font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-faint); background:var(--panel-2); border:1px solid var(--line-soft);
+    border-radius:999px; padding:1px 6px; }
+  .soon-panel{ max-width:620px; margin:24px 0; padding:28px 26px; text-align:left;
+    background:var(--panel); border:1px dashed var(--line); border-radius:var(--radius); }
+  .soon-badge{ display:inline-block; padding:3px 10px; margin-bottom:14px; font-size:10.5px; font-weight:650;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--accent-bright);
+    background:var(--accent-soft); border:1px solid var(--accent-dim); border-radius:999px; }
+  .soon-panel h3{ margin:0 0 8px; font-family:var(--display); font-size:17px; font-weight:700; letter-spacing:.02em; }
+  .soon-panel p{ margin:0 0 8px; font-size:13px; line-height:1.65; color:var(--ink-dim); max-width:56ch; }
+  .soon-note{ color:var(--ink-faint)!important; font-size:12px!important; }
+
+  /* ---------- org cards: what each lane may and may not do ---------- */
+  .org-cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(330px,1fr)); gap:12px; margin-top:18px; }
+  .org-card{ --hue:180; display:flex; flex-direction:column; gap:11px; padding:16px 17px;
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:var(--radius);
+    transition:border-color .15s; }
+  .org-card:hover{ border-color:hsl(var(--hue) 35% 38%); }
+  .org-card.principal{ border-color:#f0a41f66; }
+  .org-card header{ display:flex; flex-direction:column; gap:5px; }
+  .org-card h4{ display:flex; align-items:baseline; gap:8px; margin:0; font-size:14.5px; }
+  .org-card h4::before{ content:""; flex:none; align-self:center; width:8px; height:8px; border-radius:2.5px;
+    background:hsl(var(--hue) 62% 58%); box-shadow:0 0 0 3px hsl(var(--hue) 60% 55% / .15); }
+  .org-card.principal h4::before{ background:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .org-blurb{ font-size:12px; color:var(--ink-dim); line-height:1.55; }
+  .org-chips{ display:flex; flex-wrap:wrap; gap:5px; margin-top:2px; }
+  .org-chip{ padding:2px 8px; font-size:10.5px; font-family:var(--font); border-radius:999px;
+    background:var(--panel-2); border:1px solid var(--line-soft); color:var(--ink-dim); }
+  .org-lbl{ font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--ink-faint); margin-bottom:4px; }
+  .org-blk ul{ display:flex; flex-direction:column; gap:5px; margin:0; padding-left:16px; }
+  .org-blk li{ font-size:12px; line-height:1.6; color:var(--ink-dim); }
+  .org-blk li::marker{ color:hsl(var(--hue) 45% 55%); }
+  .org-blk.no li{ color:var(--ink-faint); }
+  .org-blk.no li::marker{ color:var(--hot); }
+
   /* ---------- the drawer: detail slides over, it does not push the board ---------- */
   .scrim{ position:fixed; inset:0; z-index:40; background:#04070ead;
     -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); animation:.2s scrim-in; }
@@ -734,7 +772,7 @@
     token: null,
     whoami: null,
     context: null,
-    view: 'board',
+    view: 'deck',
     drawer: null,
     board: {
       items: [], waiting_on_you: [], waiting_on_agents: [], columns: {}, revision: null,
@@ -1016,12 +1054,13 @@
 
   /* ---------------- shell / top / tabs ---------------- */
   const TABS = [
+    ['deck', 'Command'],
     ['board', 'Board'],
     ['org', 'Org chart'],
     ['approvals', 'Approvals'],
-    ['consume', 'Ledger'],
-    ['catalog', 'Agents'],
-    ['access', 'Access'],
+    ['consume', 'Ledger', 'soon'],
+    ['catalog', 'Agents', 'soon'],
+    ['access', 'Access', 'soon'],
     ['archive', 'Archive'],
     ['connection', 'Connection'],
   ];
@@ -1082,8 +1121,9 @@
     // entry id, not every "waiting on you" reason (e.g. acknowledging a
     // platform team decision has none).
     const pendingCount = (state.board.waiting_on_you || []).filter((w) => w.entry).length;
-    return el('nav', { class: 'views' }, TABS.map(([id, label]) => {
-      const btn = el('button', { class: state.view === id ? 'on' : '' }, [label]);
+    return el('nav', { class: 'views' }, TABS.map(([id, label, soon]) => {
+      const btn = el('button', { class: (state.view === id ? 'on' : '') + (soon ? ' soon' : '') }, [label]);
+      if (soon) btn.appendChild(el('span', { class: 'soon-tag' }, ['soon']));
       if (id === 'approvals' && pendingCount > 0) btn.appendChild(el('em', { class: 'badge' }, [String(pendingCount)]));
       btn.addEventListener('click', () => { state.view = id; renderShell(); });
       return btn;
@@ -1111,9 +1151,9 @@
     if (state.view === 'board') return renderBoardView(main);
     if (state.view === 'approvals') return renderApprovalsView(main);
     if (state.view === 'archive') return renderArchivedView(main);
-    if (state.view === 'consume') return renderConsumeView(main);
-    if (state.view === 'catalog') return renderCatalogView(main);
-    if (state.view === 'access') return renderAccessView(main);
+    if (state.view === 'consume') return renderComingSoon(main, 'Ledger', 'Ask the ledger what it knows — answers filtered by your own entitlements, each citing its provenance.');
+    if (state.view === 'catalog') return renderComingSoon(main, 'Agents', 'The enterprise agents this fleet can reach, what each produces, and whether it is open to consume or needs a grant.');
+    if (state.view === 'access') return renderComingSoon(main, 'Access', 'Your live invoke grants, who approved them, and when each one expires.');
     if (state.view === 'connection') return renderConnectionView(main);
   }
 
@@ -1250,7 +1290,12 @@
   const VERB = { instruction: 'asked', proposal: 'proposed', note: 'logged', report: 'reported back', decision: 'decided' };
 
   function openLaneInBoard(lane){
-    state.board.laneFilter = lane;
+    // The board filters by the chip set now, so clicking a lane on Command
+    // lands on the board already narrowed to that agent.
+    if (!state.board.agentFilter) state.board.agentFilter = new Set();
+    state.board.agentFilter.clear();
+    state.board.agentFilter.add(lane);
+    state.board.groupBy = 'owner';
     state.view = 'board';
     renderShell();
   }
@@ -1260,6 +1305,7 @@
     state.board.detail = null;
     state.board.historyOpen = false;
     state.view = 'board';
+    state.drawer = { kind: 'item', id };
     renderShell();
   }
 
@@ -1615,6 +1661,20 @@
     panel.appendChild(body);
   }
 
+  // These three are being rebuilt. Saying so plainly beats showing a half-built
+  // surface; the existing renderers are still in this file, unrouted.
+  function renderComingSoon(main, title, blurb){
+    main.appendChild(el('div', { class: 'view-header' }, [
+      el('div', {}, [el('h2', {}, [title]), el('div', { class: 'view-sub' }, ['Being rebuilt.'])]),
+    ]));
+    main.appendChild(el('div', { class: 'soon-panel' }, [
+      el('div', { class: 'soon-badge' }, ['Coming soon']),
+      el('h3', {}, [title]),
+      el('p', {}, [blurb]),
+      el('p', { class: 'soon-note' }, ['This surface is being rebuilt against the house design system. The API behind it is live and checked — only the view is pending.']),
+    ]));
+  }
+
   /* ================= ORG — the reporting tree ================= */
   function renderOrgView(main){
     const agents = agentList();
@@ -1665,6 +1725,43 @@
     }
     tree.appendChild(el('div', { class: 'org-rail' }));
     main.appendChild(tree);
+
+    // What each lane may and may not do. The tree says who reports to whom; this
+    // says what the authority actually is, which is the part a reader cannot
+    // infer from a name.
+    const cards = el('div', { class: 'org-cards' });
+    [orch].concat(lanes).forEach((a) => {
+      const hue = hashHue(a.id);
+      const card = el('div', { class: 'org-card', style: '--hue:' + hue }, [
+        el('header', {}, [
+          el('h4', {}, [agentName(a.id), a.orchestrator ? el('span', { class: 'pill' }, ['orchestrator']) : null]),
+          el('div', { class: 'org-blurb' }, [agentRole(a.id) || 'agent in this fleet']),
+        ]),
+        el('div', { class: 'org-chips' }, [
+          el('span', { class: 'org-chip' }, ['reports to ' + (a.orchestrator ? ownerName() : agentName(a.reports_to || orch.id))]),
+          el('span', { class: 'org-chip' }, [agentLoad(a.id)]),
+        ]),
+      ]);
+      const can = (a.can || []);
+      const cannot = (a.cannot || []);
+      if (can.length) {
+        card.appendChild(el('div', { class: 'org-blk' }, [
+          el('div', { class: 'org-lbl' }, ['Can']),
+          el('ul', {}, can.map((t) => el('li', {}, [t]))),
+        ]));
+      }
+      if (cannot.length) {
+        card.appendChild(el('div', { class: 'org-blk no' }, [
+          el('div', { class: 'org-lbl' }, ['Cannot']),
+          el('ul', {}, cannot.map((t) => el('li', {}, [t]))),
+        ]));
+      }
+      if (!can.length && !cannot.length) {
+        card.appendChild(el('div', { class: 'org-blurb' }, ['No authority declared for this lane yet.']));
+      }
+      cards.appendChild(card);
+    });
+    main.appendChild(cards);
   }
 
   /* ================= BOARD ================= */

@@ -18,17 +18,24 @@ team runs the light one. Neither can read the other's.
 
 ### Fleet Mission Control — one employee's private cockpit
 
-![Fleet Mission Control — the Jira-style board](img/northwind-board.png)
+![Command — the fleet at a glance](img/northwind-command.png)
 
-One employee's own board. **Group by Status, Owner or Kind** with the toggle, and filter to any
-set of agents with the colour chips. Each section carries a count and, per agent, a state badge —
-*Working*, *Waiting*, *Blocked*, *Idle* — derived from its own tasks. Click an agent's section
-header and its state opens as a **pop-up**: role, who it reports to, and its open tasks, each a
-link back to the item.
+**Command** is the landing view: every agent in orbit with what it is carrying, the
+situation counters, and the live signal feed. **Board** is the same work as columns:
 
-The board above is the Northwind Ops fleet (`node northwind.mjs`), grouped by owner: the
-`Reconcile on-time` task sits with **Tally**, the `Ardent Freight` note waits on **Relay**, and
-the whole fleet is one glance.
+![Board](img/northwind-board.png)
+
+**Group by Status, Owner or Kind**, search, and filter to any set of agents with the colour
+chips — each chip fills solid in that agent's own hue when it is on. Grouped by owner, every
+registered agent gets a column even at zero, so the whole fleet stays visible. A card carries
+whatever the grouping does not already say: its lane when grouped by status, its status when
+grouped by owner.
+
+Clicking a card opens a **drawer** over the board — the item's facts and its full thread —
+rather than pushing the columns around. A column head opens that agent's drawer instead.
+
+The board above is the Northwind Ops fleet (`node northwind.mjs`): the `Reconcile on-time`
+task sits with **Tally**, the `Ardent Freight` note waits on **Relay**.
 
 ### Org chart — owner, orchestrator, employees
 
@@ -36,13 +43,14 @@ the whole fleet is one glance.
 
 The **Org chart** tab is a real reporting tree: the fleet owner (a human) at the top, the
 **orchestrator** (the chief-of-staff agent) beneath, and every other AI employee reporting
-through it. Every node is clickable — same state pop-up as the board.
+through it. Every node opens that agent's drawer.
 
-### Platform Mission Control — the governance desk
+Underneath the tree, a card per lane states its **authority** — what it *can* do and, just as
+importantly, what it **cannot**. That comes from `can`/`cannot` declared when the agent is
+registered, so a lane's reach is stated rather than inferred from its name.
 
-![Platform Mission Control](img/platform-mission-control.png)
-
-The platform team's review surface. Outputs by state and status, the grant review queue, and
+Three tabs — **Ledger**, **Agents**, **Access** — are marked *soon* and show a placeholder.
+Their APIs are live and covered by the acceptance suite; only the views are being rebuilt.
 
 ### Platform Mission Control — the governance desk
 

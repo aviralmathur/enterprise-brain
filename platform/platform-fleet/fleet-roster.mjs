@@ -37,6 +37,11 @@ export class FleetRoster {
         purpose: a.purpose ?? null,
         orchestrator: a.orchestrator ?? false,
         reports_to: a.reports_to ?? null,
+        // What this lane is allowed to do, and what it is not. Declared at
+        // registration so the org chart states a lane's authority rather than
+        // leaving it to be inferred from its name.
+        can: Array.isArray(a.can) ? a.can : [],
+        cannot: Array.isArray(a.cannot) ? a.cannot : [],
       })),
       registered_at: db.fleets[fleet]?.registered_at ?? new Date().toISOString(),
     };
@@ -54,6 +59,8 @@ export class FleetRoster {
       purpose: agent.purpose ?? null,
       orchestrator: agent.orchestrator ?? false,
       reports_to: agent.reports_to ?? null,
+      can: Array.isArray(agent.can) ? agent.can : [],
+      cannot: Array.isArray(agent.cannot) ? agent.cannot : [],
     });
     this.save(db);
     return { ok: true, fleet: f };

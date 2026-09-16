@@ -76,6 +76,8 @@ export class FleetBoard {
         role: a.purpose || 'agent in this fleet',
         orchestrator: a.orchestrator || false,
         reports_to: a.reports_to || null,
+        can: a.can || [],
+        cannot: a.cannot || [],
       };
     }
     return reg;
