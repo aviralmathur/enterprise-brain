@@ -41,6 +41,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: validate.sh --example
         run: bash validate.sh --example
+      # The example fleet is all single-word agents on an LF checkout, so it cannot see a
+      # CRLF working tree or a name with a space in it. --selftest builds a fixture that has
+      # both. Without this step the roster parser can silently regress on every Windows
+      # clone and every multi-word agent, and CI stays green.
+      - name: validate.sh --selftest
+        run: bash validate.sh --selftest
 
   # A generic kit must ship with no real fleet in it. This gate fails the build if a
   # real agent, org or project name reappears in a shipped surface (skills/ or
