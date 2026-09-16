@@ -20,14 +20,15 @@ team runs the light one. Neither can read the other's.
 
 ![Fleet Mission Control — the Jira-style board](img/northwind-board.png)
 
-One employee's own board, as a **Jira-style board**: every AI employee is a swimlane row, the
-statuses are columns, and each agent carries a state badge — *Working*, *Waiting*, *Blocked*,
-*Idle* — derived from its own tasks. Click any agent's lane header and its state opens as a
-**pop-up**: role, who it reports to, and its open tasks, each a link back to the item.
+One employee's own board. **Group by Status, Owner or Kind** with the toggle, and filter to any
+set of agents with the colour chips. Each section carries a count and, per agent, a state badge —
+*Working*, *Waiting*, *Blocked*, *Idle* — derived from its own tasks. Click an agent's section
+header and its state opens as a **pop-up**: role, who it reports to, and its open tasks, each a
+link back to the item.
 
-The board above is the Northwind Ops fleet (`node northwind.mjs`): the `Reconcile on-time`
-task sits with **Tally**, the `Ardent Freight` note waits on **Relay**, and the whole thing is
-one glance.
+The board above is the Northwind Ops fleet (`node northwind.mjs`), grouped by owner: the
+`Reconcile on-time` task sits with **Tally**, the `Ardent Freight` note waits on **Relay**, and
+the whole fleet is one glance.
 
 ### Org chart — owner, orchestrator, employees
 

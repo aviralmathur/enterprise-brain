@@ -665,6 +665,40 @@
   .am-task:hover{ border-color:var(--accent-dim); background:var(--panel-3); }
   .am-task-title{ flex:1; min-width:0; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .am-task-kind{ font-size:11px; color:var(--ink-faint); flex:none; }
+
+  /* ---- group-by toggle + agent filter chips (the board controls) ---- */
+  .board-controls{ display:flex; align-items:center; gap:10px; margin:2px 0 12px; }
+  .board-controls-label{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:600; }
+  .seg{ display:inline-flex; background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:3px; gap:2px; }
+  .seg-btn{ border:0; background:transparent; color:var(--ink-dim); font-size:13px; font-weight:600;
+    padding:6px 14px; border-radius:7px; }
+  .seg-btn:hover{ color:var(--ink); }
+  .seg-btn.on{ background:var(--accent); color:var(--accent-ink); box-shadow:0 1px 3px #0206104d; }
+
+  .agent-chips{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:16px; }
+  .agent-chip{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:500;
+    padding:5px 12px; border-radius:999px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim); }
+  .agent-chip:hover{ color:var(--ink); border-color:var(--line); background:var(--panel-3); }
+  .agent-chip-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
+  .agent-chip-clear{ color:var(--ink-faint); }
+
+  /* ---- the sectioned board ---- */
+  .sections{ display:flex; flex-direction:column; gap:16px; }
+  .board-section{ background:var(--panel); border:1px solid var(--line-soft); border-radius:12px;
+    overflow:hidden; box-shadow:var(--shadow-raise); }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;
+    padding:12px 16px; background:var(--panel-2); border:0; border-bottom:1px solid var(--line-soft); text-align:left; }
+  button.section-head{ cursor:pointer; color:var(--ink); }
+  button.section-head:hover{ background:var(--panel-3); }
+  .section-head-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .section-avatar{ width:24px; height:24px; border-radius:7px; flex:none; display:flex; align-items:center;
+    justify-content:center; font-weight:700; font-size:11px; color:#fff; text-transform:uppercase; }
+  .section-title-t{ font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:.02em; }
+  .section-desc{ font-size:12px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .section-cards{ padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:10px; }
+  .section-empty{ color:var(--ink-faint); font-size:12.5px; padding:6px 4px; }
+  .card-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; align-items:center; }
+  .card-agent{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; }
 </style>
 </head>
 <body>
@@ -686,6 +720,7 @@
       items: [], waiting_on_you: [], waiting_on_agents: [], columns: {}, revision: null,
       selectedId: null, detail: null, detailLoading: null,
       queueFilter: null, laneFilter: null, historyOpen: false,
+      groupBy: 'owner', agentFilter: null,
       archivedItems: [], archivedLoaded: false, archivedLoading: false,
     },
     consume: { kind: '', subject: '', agent: '', result: null, selectedOutput: null },
@@ -1667,60 +1702,86 @@
       displayItems = displayItems.filter((i) => i.lane === state.board.laneFilter);
     }
 
-    // Jira-style swimlanes: one row per AI employee, one column per status. Every
-    // registered agent gets a row even at zero tasks, so the whole fleet is visible
-    // at a glance; a lane header is a button that pops up that agent's state.
-    const activeStatuses = statusOrder().filter((k) => displayItems.some((i) => i.status === k));
-    if (!activeStatuses.length) {
+    // ---- controls: group-by toggle + per-agent filter chips (Mission Control style) ----
+    const gb = state.board.groupBy || 'owner';
+    const seg = el('div', { class: 'seg' }, [['status', 'Status'], ['owner', 'Owner'], ['kind', 'Kind']].map(([k, label]) => {
+      const b = el('button', { class: 'seg-btn' + (gb === k ? ' on' : '') }, [label]);
+      b.addEventListener('click', () => { state.board.groupBy = k; renderShell(); });
+      return b;
+    }));
+    main.appendChild(el('div', { class: 'board-controls' }, [
+      el('span', { class: 'board-controls-label' }, ['Group by']), seg,
+    ]));
+
+    if (!state.board.agentFilter) state.board.agentFilter = new Set();
+    const af = state.board.agentFilter;
+    const chipRow = el('div', { class: 'agent-chips' });
+    agentList().forEach((a) => {
+      const hue = hashHue(a.id);
+      const on = af.has(a.id);
+      const chip = el('button', {
+        class: 'agent-chip' + (on ? ' on' : ''),
+        style: on ? 'border-color:hsl(' + hue + ' 55% 55%); color:hsl(' + hue + ' 72% 80%); background:hsl(' + hue + ' 55% 45% / .16)' : '',
+      }, [el('span', { class: 'agent-chip-dot', style: 'background:hsl(' + hue + ' 60% 55%)' }), agentName(a.id)]);
+      chip.addEventListener('click', () => { if (af.has(a.id)) af.delete(a.id); else af.add(a.id); renderShell(); });
+      chipRow.appendChild(chip);
+    });
+    if (af.size) {
+      const clear = el('button', { class: 'agent-chip agent-chip-clear' }, ['Clear ' + af.size + ' ×']);
+      clear.addEventListener('click', () => { af.clear(); renderShell(); });
+      chipRow.appendChild(clear);
+    }
+    main.appendChild(chipRow);
+
+    let disp = displayItems;
+    if (af.size) disp = disp.filter((i) => af.has(i.lane));
+
+    // ---- sections by the chosen dimension ----
+    const groups = [];
+    if (gb === 'status') {
+      statusOrder().forEach((k) => {
+        const its = disp.filter((i) => i.status === k);
+        if (its.length) groups.push({ label: statusLabel(k), desc: statusDesc(k), dot: statusDotClass(k), items: its, dim: 'status' });
+      });
+    } else if (gb === 'kind') {
+      const kinds = [];
+      disp.forEach((i) => { if (!kinds.includes(i.kind)) kinds.push(i.kind); });
+      kinds.forEach((k) => groups.push({ label: titleCase(k), desc: '', items: disp.filter((i) => i.kind === k), dim: 'kind' }));
+    } else { // owner — a section per registered agent, always, so the whole fleet shows
+      const laneIds = agentList().map((a) => a.id);
+      disp.forEach((i) => { if (!laneIds.includes(i.lane)) laneIds.push(i.lane); });
+      laneIds.forEach((lane) => {
+        const isAgent = agentList().some((a) => a.id === lane);
+        groups.push({
+          label: laneDisplayName(lane), desc: isAgent ? (agentRole(lane) || '') : 'you',
+          items: disp.filter((i) => i.lane === lane), dim: 'owner', agent: isAgent ? lane : null,
+        });
+      });
+    }
+
+    const visible = groups.filter((g) => gb === 'owner' || g.items.length);
+    if (!visible.length) {
       main.appendChild(el('div', { class: 'empty-state' }, ['no items match this view']));
     } else {
-      const laneIds = agentList().map((a) => a.id);
-      displayItems.forEach((i) => { if (!laneIds.includes(i.lane)) laneIds.push(i.lane); });
-      const template = '190px repeat(' + activeStatuses.length + ', minmax(168px, 1fr))';
-
-      const legend = el('div', { class: 'swim-legend' },
-        activeStatuses.map((k) => el('span', { class: 'swim-legend-item' }, [
-          el('span', { class: 'am-task-dot ' + statusDotClass(k) }), statusLabel(k),
-        ])));
-      main.appendChild(legend);
-
-      const scroller = el('div', { class: 'swimboard-scroll' });
-      const board = el('div', { class: 'swimboard' });
-
-      const head = el('div', { class: 'swim-row swim-head', style: 'grid-template-columns:' + template });
-      head.appendChild(el('div', { class: 'swim-corner' }, ['Agent']));
-      activeStatuses.forEach((k) => head.appendChild(el('div', { class: 'swim-colhead' }, [
-        el('span', {}, [statusLabel(k)]),
-        el('span', { class: 'badge-count' }, [String(displayItems.filter((i) => i.status === k).length)]),
-      ])));
-      board.appendChild(head);
-
-      laneIds.forEach((lane) => {
-        const laneItems = displayItems.filter((i) => i.lane === lane);
-        const isAgent = agentList().some((a) => a.id === lane);
-        const row = el('div', { class: 'swim-row', style: 'grid-template-columns:' + template });
-
-        const st = agentState(lane);
-        const laneHead = el(isAgent ? 'button' : 'div', { class: 'swim-lane' + (isAgent ? '' : ' swim-lane-static') }, [
-          el('div', { class: 'swim-avatar', style: 'background:hsl(' + hashHue(lane) + ' 55% 42%)' }, [laneDisplayName(lane).slice(0, 1)]),
-          el('div', { class: 'swim-lane-body' }, [
-            el('div', { class: 'swim-lane-name' }, [laneDisplayName(lane)]),
-            el('div', { class: 'swim-lane-role' }, [isAgent ? (agentRole(lane) || 'agent') : 'you']),
-            isAgent ? el('span', { class: 'state-pill ' + st.cls }, [st.label]) : null,
-          ]),
+      const wrap = el('div', { class: 'sections' });
+      visible.forEach((g) => {
+        const left = el('div', { class: 'section-head-left' }, [
+          g.dot ? el('span', { class: 'am-task-dot ' + g.dot }) : null,
+          g.agent ? el('span', { class: 'section-avatar', style: 'background:hsl(' + hashHue(g.agent) + ' 55% 42%)' }, [g.label.slice(0, 1)]) : null,
+          el('span', { class: 'section-title-t' }, [g.label]),
+          el('span', { class: 'badge-count' }, [String(g.items.length)]),
+          g.agent ? el('span', { class: 'state-pill ' + agentState(g.agent).cls }, [agentState(g.agent).label]) : null,
         ]);
-        if (isAgent) laneHead.addEventListener('click', () => openAgentModal(lane));
-        row.appendChild(laneHead);
-
-        activeStatuses.forEach((k) => {
-          const cell = el('div', { class: 'swim-cell' });
-          laneItems.filter((i) => i.status === k).forEach((it) => cell.appendChild(renderItemCard(it, wYou)));
-          row.appendChild(cell);
-        });
-        board.appendChild(row);
+        const header = el(g.agent ? 'button' : 'div', { class: 'section-head' + (g.agent ? ' section-head-btn' : '') }, [
+          left, g.desc ? el('span', { class: 'section-desc' }, [g.desc]) : null,
+        ]);
+        if (g.agent) header.addEventListener('click', () => openAgentModal(g.agent));
+        const cards = el('div', { class: 'section-cards' });
+        if (!g.items.length) cards.appendChild(el('div', { class: 'section-empty' }, ['nothing open']));
+        g.items.forEach((it) => cards.appendChild(renderBoardCard(it, wYou, g.dim)));
+        wrap.appendChild(el('div', { class: 'board-section' }, [header, cards]));
       });
-      scroller.appendChild(board);
-      main.appendChild(scroller);
+      main.appendChild(wrap);
     }
 
     // Default the detail to whatever needs the owner, not to whatever sorted
@@ -1742,6 +1803,47 @@
       detailWrap.appendChild(el('div', { class: 'empty-state' }, ['nothing on the board yet: use + Instruct or + New item']));
     }
     main.appendChild(detailWrap);
+  }
+
+  // A one-line description per status, the way the reference board labels its
+  // sections ("moving, ball is with us").
+  function statusDesc(key){
+    return ({
+      now: 'moving, ball is with us',
+      blocked: 'something must break first',
+      waiting: 'ball is with someone else',
+      parked: 'deliberately not now',
+      done: 'finished',
+      shipped: 'shipped',
+    })[key] || '';
+  }
+  function statusChipClass(key){
+    return ({ now: 'chip-green', blocked: 'chip-red', waiting: 'chip-amber', parked: 'chip-neutral', done: 'chip-neutral', shipped: 'chip-green' })[key] || 'chip-neutral';
+  }
+
+  // A card for the sectioned board. It carries whatever dimensions the current
+  // grouping does NOT already convey: grouped by owner, it shows the status;
+  // grouped by status, it shows the owning agent; grouped by kind, it shows both.
+  function renderBoardCard(item, wYou, dim){
+    const pendingHere = (wYou || []).some((w) => w.item === item.id && w.entry);
+    const chips = [];
+    if (dim !== 'owner') {
+      const hue = hashHue(item.lane);
+      chips.push(el('span', { class: 'card-agent', style: 'color:hsl(' + hue + ' 70% 78%)' }, [
+        el('span', { class: 'agent-chip-dot', style: 'background:hsl(' + hue + ' 60% 55%)' }), laneDisplayName(item.lane),
+      ]));
+    }
+    if (dim !== 'status') chips.push(el('span', { class: 'chip ' + statusChipClass(item.status) }, [statusLabel(item.status)]));
+    if (item.tag) chips.push(el('span', { class: 'chip chip-neutral' }, [item.tag]));
+    const card = el('button', { class: 'item-card' + (state.board.selectedId === item.id ? ' selected' : '') }, [
+      el('div', { class: 'item-title' }, [pendingHere ? el('span', { class: 'waiting-badge' }) : null, item.title]),
+      el('div', { class: 'item-meta' }, [item.kind]),
+      chips.length ? el('div', { class: 'card-chips' }, chips) : null,
+    ]);
+    card.addEventListener('click', () => {
+      state.board.selectedId = item.id; state.board.detail = null; state.board.historyOpen = false; renderShell();
+    });
+    return card;
   }
 
   function renderItemCard(item, wYou){
