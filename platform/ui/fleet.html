@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fleet Mission Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   /*
    * A deep blue-black ground, signal amber for anything that needs the owner's
@@ -33,10 +36,13 @@
     --hot-soft: rgba(255, 109, 109, 0.13);
     --warn: #e6b455;
     --warn-soft: rgba(230, 180, 85, 0.12);
-    --radius: 10px;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --display: var(--font);
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --radius: 12px;
+    --shadow-raise: 0 2px 6px #02061059, 0 10px 28px #0206104d;
+    /* The Mission Control type system: Archivo for display, IBM Plex Sans for
+       body, IBM Plex Mono for timestamps and ids. Same as the reference. */
+    --font: "IBM Plex Sans", "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    --display: "Archivo", var(--font);
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
   }
 
   *{ box-sizing: border-box; }
@@ -46,7 +52,8 @@
     background: var(--bg);
     color: var(--ink);
     font-family: var(--font);
-    font-size: 14px;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
     line-height: 1.5;
   }
   body{
@@ -168,11 +175,11 @@
   .asof{ margin: 6px 0 0; font-size: 12px; font-family: var(--mono); color: var(--ink-faint); }
   .top-stats{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .stat{
-    background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius);
-    padding: 7px 13px; display:flex; align-items:baseline; gap:8px;
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 14px;
+    padding: 9px 16px; display:flex; align-items:baseline; gap:9px; box-shadow: var(--shadow-raise);
   }
-  .stat b{ font-size: 17px; font-family: var(--mono); font-weight:600; font-variant-numeric: tabular-nums; }
-  .stat span{ font-size: 11.5px; color: var(--ink-faint); }
+  .stat b{ font-size: 21px; font-family: var(--display); font-weight:700; font-variant-numeric: tabular-nums; letter-spacing:.01em; }
+  .stat span{ font-size: 12px; color: var(--ink-dim); }
   .stat.hot{ border-color: rgba(255,109,109,.45); background: linear-gradient(180deg, var(--hot-soft), var(--panel)); }
   .stat.hot b{ color: var(--hot); }
   .stat.warn{ border-color: rgba(230,180,85,.4); background: linear-gradient(180deg, var(--warn-soft), var(--panel)); }
@@ -228,7 +235,7 @@
   .chip-neutral{ background: var(--panel-2); color: var(--ink-dim); border-color: var(--line); }
 
   /* ---------- cards / lists ---------- */
-  .card{ background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .card{ background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow-raise); }
   .card h3{ font-size:14px; }
   .section-title{ font-size:12px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-faint); margin: 4px 0 8px; }
   .scroll-x{ overflow-x:auto; max-width:100%; }
@@ -237,7 +244,7 @@
   th{ color: var(--ink-faint); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
   td.wrap{ white-space: normal; }
   .view-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin: 18px 0 16px; flex-wrap:wrap; }
-  .view-header h2{ font-size: 18px; font-family: var(--display); letter-spacing: .04em; }
+  .view-header h2{ font-size: 22px; font-family: var(--display); font-weight:700; letter-spacing: .01em; }
   .view-sub{ color: var(--ink-faint); font-size: 12.5px; margin-top:3px; }
 
   /* ---------- board ---------- */
@@ -582,7 +589,8 @@
 
   /* ---- the Jira swimlane board ---- */
   .swimboard-scroll{ overflow-x:auto; padding-bottom:6px; }
-  .swimboard{ min-width:640px; border:1px solid var(--line-soft); border-radius:12px; overflow:hidden; background:var(--panel); }
+  .swimboard{ min-width:640px; border:1px solid var(--line-soft); border-radius:12px; overflow:hidden; background:var(--panel); box-shadow:var(--shadow-raise); }
+  .swim-corner, .swim-colhead span:first-child{ font-family:var(--display); }
   .swim-row{ display:grid; align-items:stretch; border-top:1px solid var(--line-soft); }
   .swim-row:first-child{ border-top:0; }
   .swim-head{ position:sticky; top:0; background:var(--panel-2); z-index:2; }
@@ -598,9 +606,10 @@
   .swim-lane-static{ cursor:default; }
   .swim-avatar{ width:30px; height:30px; border-radius:8px; flex:none; display:flex; align-items:center;
     justify-content:center; font-weight:700; font-size:13px; color:#fff; text-transform:uppercase; }
-  .swim-lane-body{ min-width:0; flex:1; }
-  .swim-lane-name{ font-weight:600; font-size:13.5px; }
-  .swim-lane-role{ font-size:11px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .swim-lane-body{ min-width:0; flex:1; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+  .swim-lane-name{ font-weight:600; font-size:14px; font-family:var(--display); }
+  .swim-lane-role{ font-size:11px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .swim-lane .state-pill{ margin-top:1px; }
   .swim-cell{ padding:8px; border-left:1px solid var(--line-soft); display:flex; flex-direction:column; gap:8px;
     background:repeating-linear-gradient(-45deg, transparent, transparent 9px, rgba(255,255,255,.008) 9px, rgba(255,255,255,.008) 10px); }
 
@@ -616,7 +625,7 @@
   .orgc-child{ position:relative; }
   .orgc-child::before{ content:''; position:absolute; top:-26px; left:50%; width:2px; height:26px; background:var(--line); }
   .orgc-node{ display:flex; align-items:center; gap:11px; text-align:left; min-width:210px; max-width:280px;
-    padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink); }
+    padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink); box-shadow:var(--shadow-raise); }
   button.orgc-node{ cursor:pointer; transition:border-color .12s, transform .12s, background .12s; }
   button.orgc-node:hover{ border-color:var(--accent-dim); background:var(--panel-3); transform:translateY(-1px); }
   button.orgc-node:disabled{ cursor:default; }
@@ -625,8 +634,9 @@
   .orgc-avatar{ width:34px; height:34px; border-radius:9px; flex:none; display:flex; align-items:center;
     justify-content:center; font-weight:700; color:#fff; text-transform:uppercase; }
   .orgc-owner .orgc-avatar{ background:var(--accent); color:var(--accent-ink); }
+  .orgc-owner .orgc-name{ color:var(--accent-bright); }
   .orgc-body{ flex:1; min-width:0; }
-  .orgc-name{ font-weight:700; font-size:14px; }
+  .orgc-name{ font-weight:700; font-size:14.5px; font-family:var(--display); }
   .orgc-sub{ font-size:11.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* ---- the agent pop-up ---- */
@@ -639,7 +649,7 @@
   .am-avatar{ width:44px; height:44px; border-radius:11px; flex:none; display:flex; align-items:center;
     justify-content:center; font-weight:700; font-size:18px; color:#fff; text-transform:uppercase; }
   .am-id{ flex:1; min-width:0; }
-  .am-name{ font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px; }
+  .am-name{ font-weight:700; font-size:17px; font-family:var(--display); display:flex; align-items:center; gap:8px; }
   .am-orch{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--accent-bright);
     background:var(--accent-soft); border:1px solid var(--accent-dim); padding:2px 6px; border-radius:5px; }
   .am-role{ font-size:12.5px; color:var(--ink-dim); margin-top:2px; }
@@ -1696,8 +1706,8 @@
           el('div', { class: 'swim-lane-body' }, [
             el('div', { class: 'swim-lane-name' }, [laneDisplayName(lane)]),
             el('div', { class: 'swim-lane-role' }, [isAgent ? (agentRole(lane) || 'agent') : 'you']),
+            isAgent ? el('span', { class: 'state-pill ' + st.cls }, [st.label]) : null,
           ]),
-          isAgent ? el('span', { class: 'state-pill ' + st.cls }, [st.label]) : null,
         ]);
         if (isAgent) laneHead.addEventListener('click', () => openAgentModal(lane));
         row.appendChild(laneHead);
