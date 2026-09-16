@@ -90,8 +90,12 @@ seed printed.
   with real people, real systems of record or real numbers.
 - **Read the gaps.** The host has no TLS of its own (Vercel terminates it), the
   rate limit and the in-flight cap are per-instance and therefore weaker across
-  many instances, and an append on Blob is a read-modify-write. That is demo
-  scale. See "Known gaps" in the README.
+  many instances, and an append on Blob is a read-modify-write. Concurrent writers
+  are caught by optimistic concurrency — a flush that finds the document changed
+  under it throws a conflict rather than losing the other writer's append — but
+  Blob has no atomic compare-and-set, so this narrows the race, it does not close
+  it. Treat the hosted store as **single-writer** until it is backed by something
+  with real CAS. That is demo scale. See "Known gaps" in the README.
 
 ## Somewhere other than Vercel
 

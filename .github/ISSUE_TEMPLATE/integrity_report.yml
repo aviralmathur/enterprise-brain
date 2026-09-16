@@ -1,0 +1,29 @@
+name: Integrity defect (platform)
+description: A way one fleet reaches another's data, widens a scope, or skips a gate
+labels: [integrity, security]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        The most valuable thing you can file. Describe the attack as a sequence of
+        `ledger` / `gateway` / board calls. If you can write it as a check that fails
+        against current `main`, it goes straight into the adversarial phase.
+  - type: textarea
+    id: attack
+    attributes:
+      label: The attack
+      description: Who is the untrusted party, what do they call, what do they gain.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What the contract says should happen
+      description: Point at the rule in spec/contracts.md it violates.
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: A failing check (optional but ideal)
+      render: javascript

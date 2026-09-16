@@ -112,7 +112,13 @@ export class Gateway {
 
     const agent = this.registry.get(target);
     const connector = this.connectors[agent.connectors?.[0]?.system];
-    const isWrite = connector?.writes?.includes(op) ?? false;
+    // Default-deny: an op is a read ONLY if the connector explicitly lists it as one.
+    // Anything else — an unknown op, or any op when no connector is wired — is treated
+    // as a write and must terminate at a human. The old code did the reverse (a write
+    // only if listed), so an unclassified op slipped through as a read with no approval,
+    // which is fail-open on the one control that breaks the injection chain (spec §6).
+    const isRead = connector?.reads?.includes(op) ?? false;
+    const isWrite = !isRead;
 
     if (isWrite && !approval?.approved_by) {
       return {

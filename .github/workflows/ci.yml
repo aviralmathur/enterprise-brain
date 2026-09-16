@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # The platform reference implementation: its own acceptance suite is the contract.
+  # "A phase that cannot pass its check has not shipped, whatever the code says."
+  acceptance:
+    name: platform acceptance (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No install: running the suite locally needs nothing (@vercel/blob is
+      # optional and only the deploy path imports it).
+      - name: acceptance suite
+        working-directory: platform
+        run: node acceptance/run.mjs
+      - name: demo walkthrough runs clean
+        working-directory: platform
+        run: node demo.mjs
+      - name: cascade demo runs clean
+        working-directory: platform
+        run: node demo-cascade.mjs
+
+  # The skills control-plane kit: the reference fleet must validate against itself.
+  validate-kit:
+    name: validate the example fleet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate.sh --example
+        run: bash validate.sh --example
+
+  # A generic kit must ship with no real fleet in it. This gate fails the build if a
+  # real agent, org or project name reappears in a shipped surface (skills/ or
+  # platform/). KNOWN-ISSUES.md legitimately documents the historical leak, so it is
+  # deliberately out of scope — the gate guards the code, not the changelog.
+  no-name-leaks:
+    name: no real names in shipped surfaces
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: grep shipped surfaces
+        run: |
+          set -euo pipefail
+          # -I skips binary files (screenshots), so an image can never false-trip the gate.
+          if grep -rIniE 'batman|captain.?america|photon|shuri|heimdall|tenarai|infogain' skills/ platform/; then
+            echo "::error::a real fleet/org name leaked into a shipped surface"
+            exit 1
+          fi
+          if grep -rIniE 'aviral' skills/ platform/ | grep -viE 'aviralmathur/(enterprise-brain|orchestrator)'; then
+            echo "::error::an author name leaked into a shipped surface"
+            exit 1
+          fi
+          echo "shipped surfaces are name-clean"

@@ -8,6 +8,22 @@ rule in [`spec/contracts.md`](spec/contracts.md) is enforced by real code and
 proved by a runnable check. Four things are seams rather than integrations, and
 are marked as such below.
 
+Two boards, because there are two owners — an employee's private cockpit and the
+platform team's governance desk, neither able to read the other's. Both are seeded
+and openable; see the [**walkthrough**](docs/walkthrough.md).
+
+| Fleet Mission Control | Platform Mission Control |
+|---|---|
+| [![Fleet Mission Control](docs/img/fleet-board.png)](docs/walkthrough.md) | [![Platform Mission Control](docs/img/platform-mission-control.png)](docs/walkthrough.md) |
+
+The one thing that makes this a brain and not a wiki — correct an output and
+everything derived from it goes stale by itself, and a derived output's audience is
+computed, not declared — is a 20-second run:
+
+```bash
+node demo-cascade.mjs    # the cascade and computed scope, on real ledger state
+```
+
 ```bash
 node serve.mjs --seed   # the two boards, seeded, with tokens printed
 node demo.mjs           # narrated end-to-end walkthrough
@@ -289,24 +305,31 @@ A phase that cannot pass its check has not shipped, whatever the code says.
 
 Honest list, in the order they would bite.
 
-1. **Single-process, file-backed.** The ledger is JSONL folded in memory. Correct
-   and inspectable; not concurrent. A real deployment needs a database with the
-   same append-only semantics — the `Ledger` interface is what to preserve.
+1. **Concurrency is optimistic, not atomic.** The ledger is JSONL folded in
+   memory; correct and inspectable, but a single process. The hosted path (one
+   Vercel Blob document per workspace) is *more* exposed to concurrent writers,
+   not less — two invocations that both hydrate, mutate and write back would race.
+   The document store now guards this with optimistic concurrency: a flush re-reads
+   the document and refuses if its revision moved since the request hydrated, so a
+   lost append becomes a loud conflict instead of silent data loss. That is
+   read-check-write, which narrows the race rather than closing it. A real
+   deployment needs a store with atomic compare-and-set (or a database with the
+   same append-only semantics) — the `Ledger` interface is what to preserve.
 2. **No real IAM or vendor tenancy.** See the seams above.
 3. **Fleet-board privacy is a path split plus an owner check.** Two employees have
    separate files, which is the right shape, but nothing stops a process with
    filesystem access from reading another workspace. Real isolation is per-tenant
    storage with its own credentials.
-5. **The boards are single-file pages with no tests of their own.** They are
+4. **The boards are single-file pages with no tests of their own.** They are
    thin clients over an API that is checked thoroughly, and every action they
    take is reachable with `curl`, but nothing exercises the rendering itself. A
    broken page would not fail the suite.
-6. **The host speaks plain HTTP.** Fine behind a proxy that terminates TLS and
+5. **The host speaks plain HTTP.** Fine behind a proxy that terminates TLS and
    rate-limits by IP, which is what a Vercel deployment gives it; not fine
    exposed directly.
-7. **Load shedding is a per-minute rate limit and an in-flight cap**, and the
+6. **Load shedding is a per-minute rate limit and an in-flight cap**, and the
    counters are per-process. Real shedding needs a queue with priorities and shared
    state across instances.
-8. **`conflicts()` compares `body.value` by identity.** Real conflict detection
+7. **`conflicts()` compares `body.value` by identity.** Real conflict detection
    needs per-kind comparators.
-9. **Subscriptions (component 16) are still not built.**
+8. **Subscriptions (component 16) are still not built.**

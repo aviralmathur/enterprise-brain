@@ -28,7 +28,21 @@ export class FleetRoster {
       owner,
       harness: 'claude',            // D12 - the sanctioned harness, for now
       state: db.fleets[fleet]?.state ?? 'active',
-      agents: agents.map((a) => ({ id: a.id, purpose: a.purpose ?? null })),
+      // `orchestrator` marks the chief-of-staff lane the others report through;
+      // `reports_to` names each agent's parent (default: the orchestrator, or the
+      // owner for the orchestrator itself). These drive the org chart; they do not
+      // change any access decision.
+      agents: agents.map((a) => ({
+        id: a.id,
+        purpose: a.purpose ?? null,
+        orchestrator: a.orchestrator ?? false,
+        reports_to: a.reports_to ?? null,
+        // What this lane is allowed to do, and what it is not. Declared at
+        // registration so the org chart states a lane's authority rather than
+        // leaving it to be inferred from its name.
+        can: Array.isArray(a.can) ? a.can : [],
+        cannot: Array.isArray(a.cannot) ? a.cannot : [],
+      })),
       registered_at: db.fleets[fleet]?.registered_at ?? new Date().toISOString(),
     };
     this.save(db);
@@ -40,7 +54,14 @@ export class FleetRoster {
     const f = db.fleets[fleet];
     if (!f) return { ok: false, errors: ['no such fleet'] };
     if (f.agents.some((a) => a.id === agent.id)) return { ok: false, errors: [`agent ${agent.id} already registered`] };
-    f.agents.push({ id: agent.id, purpose: agent.purpose ?? null });
+    f.agents.push({
+      id: agent.id,
+      purpose: agent.purpose ?? null,
+      orchestrator: agent.orchestrator ?? false,
+      reports_to: agent.reports_to ?? null,
+      can: Array.isArray(agent.can) ? agent.can : [],
+      cannot: Array.isArray(agent.cannot) ? agent.cannot : [],
+    });
     this.save(db);
     return { ok: true, fleet: f };
   }

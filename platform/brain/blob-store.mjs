@@ -38,23 +38,21 @@ async function sdk() {
  * not be served the CDN's previous copy, or an approval appears to undo itself
  * a moment after it was made.
  *
- * A read failure degrades to an empty document rather than throwing, so a store
- * hiccup shows an empty board instead of a 500. A WRITE failure is never
- * swallowed: silently losing a published output is worse than an error.
+ * A read failure THROWS (B4). A missing blob is an empty document — `get` returns
+ * null and that is legitimately new storage. But a genuine read *error* must not
+ * be swallowed into `{ files: {} }`: the caller would then flush a fresh empty
+ * document back over whatever is actually in the store, turning a transient blob
+ * hiccup into permanent data loss. A 500 is the correct outcome; an empty board
+ * that overwrites the ledger is not.
  */
 export function createBlobBackend({ logger = () => {} } = {}) {
   return createDocumentBackend({
     async load(name) {
       const { get } = await sdk();
-      try {
-        const found = await get(keyFor(name), { access: 'private', useCache: false });
-        if (!found) return { files: {} };
-        const text = await new Response(found.stream).text();
-        return JSON.parse(text);
-      } catch (err) {
-        logger('blob-read-failed', { document: name, error: err?.message });
-        return { files: {} };
-      }
+      const found = await get(keyFor(name), { access: 'private', useCache: false });
+      if (!found) return { files: {} };
+      const text = await new Response(found.stream).text();
+      return JSON.parse(text);
     },
 
     async save(name, doc) {

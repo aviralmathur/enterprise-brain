@@ -8,7 +8,10 @@
   "scripts": {
     "start": "node serve.mjs",
     "seed": "node serve.mjs --seed",
+    "northwind": "node northwind.mjs",
+    "test": "node acceptance/run.mjs",
     "accept": "node acceptance/run.mjs",
+    "demo:cascade": "node demo-cascade.mjs",
     "deploy": "vercel deploy --prod"
   },
   "//": "Running it locally needs nothing installed. @vercel/blob is imported dynamically and only by the hosted storage backend, so it is optional: install it to deploy.",

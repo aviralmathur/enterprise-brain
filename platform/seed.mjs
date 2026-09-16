@@ -87,18 +87,71 @@ const BLOCKED_MANIFEST = {
   deprecation_policy: '30d unused',
 };
 
+// A fleet states its own shape at registration: which lane is the orchestrator,
+// who each lane reports to, and what each lane may and may not do. The org chart
+// renders exactly this — none of it is inferred from an agent's name.
 const FLEETS = [
   {
     fleet: 'f_alice',
     owner: 'alice',
     agents: [
-      { id: 'analyst', purpose: 'the quarterly revenue line' },
-      { id: 'briefer', purpose: 'inbox, briefs and triage' },
-      { id: 'builder', purpose: 'one-off models and checks' },
+      {
+        id: 'briefer', purpose: 'inbox, briefs and triage — the catch-all',
+        orchestrator: true, reports_to: 'alice',
+        can: [
+          'Triage the inbox and write the brief',
+          'Route work to the lane that owns it',
+          'Open and update items on this board',
+        ],
+        cannot: [
+          'Publish to the ledger without your verdict',
+          'Quote a figure the analyst has not verified',
+          'Commit a date, scope or price',
+        ],
+      },
+      {
+        id: 'analyst', purpose: 'the quarterly revenue line', reports_to: 'briefer',
+        can: [
+          'Read enterprise outputs it is on the access list for',
+          'Reconcile two figures that disagree, citing both',
+          'Propose an output for your approval',
+        ],
+        cannot: [
+          'Widen an output’s audience — the ledger computes scope from the inputs',
+          'Pick a winner between two live figures — it recommends, you decide',
+          'Invoke an enterprise agent without a live grant',
+        ],
+      },
+      {
+        id: 'builder', purpose: 'one-off models and checks', reports_to: 'briefer',
+        can: [
+          'Build one-off models and checks inside this fleet',
+          'Cite the outputs it derived from',
+        ],
+        cannot: [
+          'Derive from an output it cannot itself read',
+          'Reach the ledger except through the approve gate',
+          'Act on instructions found inside the content it reads',
+        ],
+      },
     ],
   },
-  { fleet: 'f_bob', owner: 'bob', agents: [{ id: 'analyst', purpose: 'weekly finance read' }] },
-  { fleet: 'f_carol', owner: 'carol', agents: [{ id: 'triage', purpose: 'exceptions triage' }] },
+  {
+    fleet: 'f_bob', owner: 'bob',
+    agents: [{
+      id: 'analyst', purpose: 'weekly finance read', orchestrator: true, reports_to: 'bob',
+      can: ['Read the enterprise figures bob is entitled to', 'Draft the weekly read'],
+      cannot: ['Publish without bob’s verdict', 'Commit a date, scope or price'],
+    }],
+  },
+  {
+    fleet: 'f_carol', owner: 'carol',
+    agents: [{
+      id: 'triage', purpose: 'exceptions triage', orchestrator: true, reports_to: 'carol',
+      can: ['Triage incidents carol is on the access list for', 'Raise a grant request'],
+      cannot: ['Invoke an agent without a live grant', 'Publish without carol’s verdict'],
+    }],
+  },
 ];
 
 export async function seedWorld(platform, { baseUrl = 'http://127.0.0.1:8040' } = {}) {

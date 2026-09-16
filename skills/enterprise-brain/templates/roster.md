@@ -10,6 +10,7 @@ wrong. The brain reads this first on any org or routing question.
 | _chief-of-staff_ | Inbox, briefs, triage, catch-all | {{PRINCIPAL}} | {{PRINCIPAL}} @ {{ORG}} | `{{MEM_ROOT}}/<name>/` |
 | _strategy_ | Bets, kill/park, "where does this go bigger" | {{PRINCIPAL}} directly | {{PRINCIPAL}} @ {{ORG}} | `{{MEM_ROOT}}/<name>/` |
 | _bd_ | Outbound business development | {{BRAIN}} | <persona, e.g. personal venture> | `{{MEM_ROOT}}/<name>/` |
+| **Cerebro** | Cross-cutting knowledge — ingests sources, answers "what do we know about X" | {{BRAIN}} | *(read-only, never sends)* | `{{MEM_ROOT}}/cerebro/` |
 
 **Notes on the columns:**
 

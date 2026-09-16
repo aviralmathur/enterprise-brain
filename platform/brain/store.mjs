@@ -72,8 +72,9 @@ export function documentFor(path) {
  * write a fresh empty board over whatever is actually in the store.
  */
 export function createDocumentBackend({ load, save }) {
-  const docs = new Map(); // name -> { files: {} }
+  const docs = new Map(); // name -> { files: {}, _rev }
   const dirty = new Set();
+  const baseRev = new Map(); // name -> the _rev seen at hydrate, for optimistic concurrency
 
   const need = (name) => {
     if (!docs.has(name)) {
@@ -112,16 +113,37 @@ export function createDocumentBackend({ load, save }) {
     async hydrate(names) {
       for (const name of [].concat(names)) {
         if (docs.has(name)) continue;
-        docs.set(name, (await load(name)) ?? { files: {} });
+        const loaded = (await load(name)) ?? { files: {} };
+        docs.set(name, loaded);
+        baseRev.set(name, loaded._rev ?? 0);
       }
       return [...docs.keys()];
     },
 
     // Write back only what changed. Nothing is written when nothing was.
+    //
+    // Optimistic concurrency (B4): before writing a document, re-read it and
+    // confirm nobody has written it since this request hydrated. If the revision
+    // moved, another writer got there first — throw rather than overwrite their
+    // append, which on a shared store (Vercel Blob) is a lost ledger event.
+    // This is read-check-write, not a store-level compare-and-set, so it narrows
+    // the race rather than closing it; a backend with atomic CAS should use it.
     async flush() {
       const written = [];
       for (const name of dirty) {
-        await save(name, docs.get(name));
+        const current = (await load(name)) ?? { files: {} };
+        const currentRev = current._rev ?? 0;
+        if (currentRev !== baseRev.get(name)) {
+          throw new Error(
+            `concurrent write conflict on document "${name}" ` +
+              `(store is at rev ${currentRev}, this request hydrated rev ${baseRev.get(name)}); ` +
+              'reload and retry so the other writer\'s changes are not lost.',
+          );
+        }
+        const doc = docs.get(name);
+        doc._rev = currentRev + 1;
+        await save(name, doc);
+        baseRev.set(name, doc._rev);
         written.push(name);
       }
       dirty.clear();
@@ -133,6 +155,7 @@ export function createDocumentBackend({ load, save }) {
     reset() {
       docs.clear();
       dirty.clear();
+      baseRev.clear();
     },
 
     hydrated() {

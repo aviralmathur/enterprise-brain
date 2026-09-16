@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest something for the kit or the platform
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is hard or impossible today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would build
+      description: >
+        And how it would be proved — a control plane's value is that its claims are
+        checkable, so name the check that would show it works.

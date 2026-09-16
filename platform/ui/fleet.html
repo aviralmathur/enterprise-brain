@@ -4,13 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fleet Mission Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   /*
-   * Ported from tenarai-mission-control/app/globals.css: deep blue-black
-   * ground, signal amber for anything that needs the owner's hand, a stable
-   * hue per lane. This file has no clusters or hues of its own (see
-   * buildSectors/hashHue in the script), so both are derived at runtime from
-   * whatever the API actually returns.
+   * A deep blue-black ground, signal amber for anything that needs the owner's
+   * hand, a stable hue per lane. This file has no clusters or hues of its own
+   * (see buildSectors/hashHue in the script), so both are derived at runtime
+   * from whatever the API actually returns.
    */
   :root{
     color-scheme: dark;
@@ -35,9 +37,12 @@
     --warn: #e6b455;
     --warn-soft: rgba(230, 180, 85, 0.12);
     --radius: 10px;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --display: var(--font);
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --shadow-raise: 0 2px 6px #02061059, 0 10px 28px #0206104d;
+    /* The Mission Control type system: Archivo for display, IBM Plex Sans for
+       body, IBM Plex Mono for timestamps and ids. Same as the reference. */
+    --font: "IBM Plex Sans", "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    --display: "Archivo", var(--font);
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
   }
 
   *{ box-sizing: border-box; }
@@ -47,7 +52,8 @@
     background: var(--bg);
     color: var(--ink);
     font-family: var(--font);
-    font-size: 14px;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
     line-height: 1.5;
   }
   body{
@@ -229,7 +235,7 @@
   .chip-neutral{ background: var(--panel-2); color: var(--ink-dim); border-color: var(--line); }
 
   /* ---------- cards / lists ---------- */
-  .card{ background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .card{ background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow-raise); }
   .card h3{ font-size:14px; }
   .section-title{ font-size:12px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-faint); margin: 4px 0 8px; }
   .scroll-x{ overflow-x:auto; max-width:100%; }
@@ -238,7 +244,7 @@
   th{ color: var(--ink-faint); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
   td.wrap{ white-space: normal; }
   .view-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin: 18px 0 16px; flex-wrap:wrap; }
-  .view-header h2{ font-size: 18px; font-family: var(--display); letter-spacing: .04em; }
+  .view-header h2{ font-family: var(--display); font-size:16px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
   .view-sub{ color: var(--ink-faint); font-size: 12.5px; margin-top:3px; }
 
   /* ---------- board ---------- */
@@ -553,6 +559,203 @@
       animation: none !important;
     }
   }
+
+  /* ======================================================================
+     MISSION CONTROL — the surface.
+     Written against the house system: every coloured element carries --hue
+     inline and the colour is derived here, so one number per agent drives its
+     dot, its card border, its chip and its node. Nothing is hard-coded per lane.
+     ====================================================================== */
+
+  /* ---------- shell ---------- */
+  .board{ max-width:1900px; margin:0 auto; padding:22px 24px 60px; }
+
+  /* ---------- the controls row: group-by, search, lane chips ---------- */
+  .controls{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:16px 0; }
+  .seg{ display:flex; overflow:hidden; background:var(--panel); border:1px solid var(--line-soft); border-radius:8px; }
+  .seg button{ background:0 0; border:none; padding:7px 14px; font-size:12.5px; font-family:var(--font);
+    color:var(--ink-dim); cursor:pointer; transition:color .15s, background .15s; }
+  .seg button:hover:not(.on){ color:var(--ink); }
+  .seg button.on{ background:var(--accent); color:var(--accent-ink); font-weight:600; }
+
+  .search{ flex:260px; min-width:200px; padding:8px 13px; font-size:13px; font-family:var(--font); color:var(--ink);
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:8px;
+    transition:border-color .15s, box-shadow .15s; }
+  .search:focus{ outline:none; border-color:var(--accent-dim); box-shadow:0 0 0 3px var(--accent-soft); }
+
+  .lane-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .lane-chip{ --hue:180; padding:5px 12px; font-size:12px; font-family:var(--font); white-space:nowrap; cursor:pointer;
+    background:0 0; border:1px solid hsl(var(--hue) 30% 32%); color:hsl(var(--hue) 50% 74%); border-radius:999px;
+    transition:border-color .15s, background .15s, color .15s; }
+  .lane-chip:hover{ border-color:hsl(var(--hue) 45% 46%); }
+  .lane-chip.on{ background:hsl(var(--hue) 62% 58%); border-color:hsl(var(--hue) 62% 58%); color:#0a1018; font-weight:600; }
+  .lane-chip.clear{ color:var(--ink-faint); border-style:dashed; border-color:var(--line); }
+  .toggles{ display:flex; flex-wrap:wrap; gap:6px; }
+  .toggle{ display:inline-flex; align-items:center; gap:7px; padding:5px 11px; font-size:12px; border-radius:999px;
+    background:0 0; border:1px solid var(--line-soft); color:var(--ink-faint); cursor:pointer; user-select:none;
+    font-family:var(--font); transition:color .15s, border-color .15s; }
+  .toggle:hover{ color:var(--ink-dim); }
+  .toggle.on{ color:var(--accent-bright); border-color:var(--accent-dim); }
+  .toggle i{ width:7px; height:7px; border-radius:50%; background:var(--line); font-style:normal; }
+  .toggle.on i{ background:var(--accent); }
+
+  /* ---------- the board: fixed-width columns that scroll sideways ---------- */
+  .columns{ display:flex; align-items:flex-start; gap:14px; padding:6px 0 20px; overflow-x:auto; }
+  .col{ flex:0 0 316px; background:var(--panel); border:1px solid var(--line-soft); border-radius:12px; padding:12px;
+    animation:.28s ease-out backwards rise-in; }
+  .col:nth-child(2){ animation-delay:60ms; }
+  .col:nth-child(3){ animation-delay:.12s; }
+  .col:nth-child(4){ animation-delay:.18s; }
+  .col:nth-child(n+5){ animation-delay:.24s; }
+  .col-head{ display:flex; align-items:baseline; gap:8px; margin-bottom:10px; padding:2px 4px 12px; width:100%;
+    background:0 0; border:0; border-bottom:1px solid var(--line-soft); color:var(--ink);
+    font-family:var(--font); text-align:left; }
+  .col-head.lane{ cursor:pointer; transition:border-color .15s; }
+  .col-head.lane:hover{ border-bottom-color:hsl(var(--hue) 45% 46%); }
+  .col-head.lane:hover .col-name{ color:hsl(var(--hue) 55% 78%); }
+  .col-name{ font-size:11.5px; font-weight:650; letter-spacing:.09em; text-transform:uppercase; }
+  .col-count{ font-size:10.5px; font-family:var(--mono); color:var(--ink-dim); background:var(--panel-2);
+    border:1px solid var(--line-soft); border-radius:999px; padding:1px 7px; font-variant-numeric:tabular-nums; }
+  .col-blurb{ margin-left:auto; text-align:right; font-size:10.5px; color:var(--ink-faint);
+    max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .col-body{ display:flex; flex-direction:column; gap:8px; }
+
+  /* ---------- a card ---------- */
+  .mc-card{ --hue:180; display:block; width:100%; text-align:left; background:var(--panel-2);
+    border:1px solid var(--line-soft); border-radius:9px; padding:11px 12px; cursor:pointer; color:var(--ink);
+    font-family:var(--font); transition:border-color .16s, transform .16s, box-shadow .16s, background .16s;
+    animation:.3s ease-out backwards rise-in; }
+  .mc-card:hover{ border-color:hsl(var(--hue) 40% 42%); background:var(--panel-3);
+    box-shadow:var(--shadow-raise); transform:translateY(-1px); }
+  .mc-card.active{ border-color:hsl(var(--hue) 55% 50%); box-shadow:0 0 0 3px hsl(var(--hue) 55% 50% / .15); }
+  .col-body .mc-card:nth-child(2){ animation-delay:80ms; }
+  .col-body .mc-card:nth-child(3){ animation-delay:.12s; }
+  .col-body .mc-card:nth-child(n+4){ animation-delay:.16s; }
+  .card-top{ display:flex; align-items:flex-start; gap:9px; }
+  .lane-dot{ flex:none; width:8px; height:8px; margin-top:5px; border-radius:2.5px;
+    background:hsl(var(--hue) 62% 58%); box-shadow:0 0 0 3px hsl(var(--hue) 60% 55% / .15); }
+  .mc-card h3{ margin:0; font-size:13.5px; font-weight:550; line-height:1.4; letter-spacing:-.005em; }
+  .card-meta{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; padding-left:17px; }
+  .card-meta span{ padding:2px 7px; font-size:10.5px; border-radius:4px; background:#e9edf60d;
+    color:var(--ink-dim); white-space:nowrap; }
+  .card-meta .kind{ color:var(--ink-faint); text-transform:lowercase; }
+  .card-meta .tag{ color:hsl(var(--hue) 52% 74%); background:hsl(var(--hue) 40% 22% / .55); }
+  .card-meta .who{ color:var(--ink); }
+  .card-meta .stale{ background:var(--warn-soft); color:var(--warn); }
+  .card-meta .pending{ background:var(--accent-soft); color:var(--accent-bright); font-weight:600;
+    animation:2.4s ease-in-out infinite signal; }
+
+  /* ---------- the org tree ---------- */
+  .org{ padding:22px 0 8px; animation:.28s ease-out backwards rise-in; }
+  .org-intro h2{ margin:0 0 8px; font-family:var(--display); font-size:16px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; }
+  .org-intro p{ margin:0; max-width:760px; font-size:13px; line-height:1.7; color:var(--ink-dim); }
+  .org-tree{ display:flex; flex-direction:column; align-items:center; margin:22px 0 8px; padding:24px 18px 18px;
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:var(--radius); overflow-x:auto; }
+  .org-rail{ width:1px; height:20px; background:var(--line); flex:none; }
+  .org-row{ display:flex; justify-content:center; gap:10px; }
+  .org-row.wrap{ flex-wrap:wrap; max-width:900px; }
+  .org-node{ --hue:180; position:relative; display:flex; flex-direction:column; gap:2px; min-width:148px;
+    padding:10px 13px; text-align:left; background:var(--panel-2); border:1px solid var(--line); border-radius:9px;
+    color:var(--ink); font-family:var(--font); cursor:pointer;
+    transition:border-color .15s, transform .15s, box-shadow .15s; }
+  .org-node::before{ content:""; position:absolute; top:10px; right:10px; width:7px; height:7px; border-radius:2px;
+    background:hsl(var(--hue) 62% 58%); }
+  .org-node:hover{ border-color:hsl(var(--hue) 55% 50%); box-shadow:var(--shadow-raise); transform:translateY(-1px); }
+  .org-node.principal{ min-width:240px; border-color:var(--accent);
+    background:linear-gradient(180deg, var(--accent-soft), var(--panel-2) 70%); }
+  .org-node.principal::before{ background:var(--accent); }
+  .org-node.chief{ min-width:200px; }
+  .org-node-name{ font-size:13.5px; font-weight:600; padding-right:14px; }
+  .org-node-role{ font-size:11px; color:var(--ink-dim); }
+  .org-node-load{ font-size:10.5px; font-family:var(--mono); color:hsl(var(--hue) 48% 64%);
+    font-variant-numeric:tabular-nums; }
+  .org-node-load.idle{ color:var(--ink-faint); }
+  .org-node:has(.org-node-load:not(.idle))::before{ animation:2.6s ease-in-out infinite node-pulse; }
+  .org-node.principal:has(.org-node-load:not(.idle))::before{ animation:2.6s ease-in-out infinite signal; }
+
+  /* ---------- coming soon ---------- */
+  .views button.soon{ }
+  .soon-tag{ font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-faint); background:var(--panel-2); border:1px solid var(--line-soft);
+    border-radius:999px; padding:1px 6px; }
+  .soon-panel{ max-width:620px; margin:24px 0; padding:28px 26px; text-align:left;
+    background:var(--panel); border:1px dashed var(--line); border-radius:var(--radius); }
+  .soon-badge{ display:inline-block; padding:3px 10px; margin-bottom:14px; font-size:10.5px; font-weight:650;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--accent-bright);
+    background:var(--accent-soft); border:1px solid var(--accent-dim); border-radius:999px; }
+  .soon-panel h3{ margin:0 0 8px; font-family:var(--display); font-size:17px; font-weight:700; letter-spacing:.02em; }
+  .soon-panel p{ margin:0 0 8px; font-size:13px; line-height:1.65; color:var(--ink-dim); max-width:56ch; }
+  .soon-note{ color:var(--ink-faint)!important; font-size:12px!important; }
+
+  /* ---------- org cards: what each lane may and may not do ---------- */
+  .org-cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(330px,1fr)); gap:12px; margin-top:18px; }
+  .org-card{ --hue:180; display:flex; flex-direction:column; gap:11px; padding:16px 17px;
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:var(--radius);
+    transition:border-color .15s; }
+  .org-card:hover{ border-color:hsl(var(--hue) 35% 38%); }
+  .org-card.principal{ border-color:#f0a41f66; }
+  .org-card header{ display:flex; flex-direction:column; gap:5px; }
+  .org-card h4{ display:flex; align-items:baseline; gap:8px; margin:0; font-size:14.5px; }
+  .org-card h4::before{ content:""; flex:none; align-self:center; width:8px; height:8px; border-radius:2.5px;
+    background:hsl(var(--hue) 62% 58%); box-shadow:0 0 0 3px hsl(var(--hue) 60% 55% / .15); }
+  .org-card.principal h4::before{ background:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .org-blurb{ font-size:12px; color:var(--ink-dim); line-height:1.55; }
+  .org-chips{ display:flex; flex-wrap:wrap; gap:5px; margin-top:2px; }
+  .org-chip{ padding:2px 8px; font-size:10.5px; font-family:var(--font); border-radius:999px;
+    background:var(--panel-2); border:1px solid var(--line-soft); color:var(--ink-dim); }
+  .org-lbl{ font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--ink-faint); margin-bottom:4px; }
+  .org-blk ul{ display:flex; flex-direction:column; gap:5px; margin:0; padding-left:16px; }
+  .org-blk li{ font-size:12px; line-height:1.6; color:var(--ink-dim); }
+  .org-blk li::marker{ color:hsl(var(--hue) 45% 55%); }
+  .org-blk.no li{ color:var(--ink-faint); }
+  .org-blk.no li::marker{ color:var(--hot); }
+
+  /* ---------- the drawer: detail slides over, it does not push the board ---------- */
+  .scrim{ position:fixed; inset:0; z-index:40; background:#04070ead;
+    -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); animation:.2s scrim-in; }
+  .drawer{ --hue:180; position:fixed; top:0; right:0; z-index:41; display:flex; flex-direction:column;
+    width:min(560px,100vw); height:100dvh; background:var(--panel); border-left:1px solid var(--line);
+    box-shadow:-24px 0 60px #02061099; animation:.24s cubic-bezier(.32,.72,0,1) drawer-in; }
+  .drawer-head{ display:flex; align-items:flex-start; gap:12px; padding:16px 18px 0;
+    background:linear-gradient(180deg, hsl(var(--hue) 50% 50% / .08), transparent); }
+  .drawer-title{ display:flex; align-items:flex-start; gap:9px; min-width:0; flex:1; }
+  .drawer-title h2{ margin:0; font-size:16px; font-weight:600; line-height:1.35; letter-spacing:-.01em; }
+  .drawer-title .lane-dot{ margin-top:7px; }
+  .drawer-close{ flex:none; width:28px; height:28px; border-radius:7px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--ink-dim); font-size:15px; line-height:1; cursor:pointer; }
+  .drawer-close:hover{ color:var(--ink); background:var(--panel-3); }
+  .drawer-sub{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:9px 18px 0 35px;
+    font-size:11px; color:var(--ink-faint); }
+  .drawer-facts{ margin:11px 18px 0 35px; padding-bottom:12px; border-bottom:1px solid var(--line-soft); }
+  .drawer-facts p{ margin:0 0 5px; font-size:12px; line-height:1.55; color:var(--ink-dim); }
+  .drawer-facts b{ display:inline-block; min-width:62px; font-size:10px; font-weight:600; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-faint); }
+  .drawer-body{ flex:1; min-height:0; overflow-y:auto; padding:14px 18px 18px 35px; }
+  .drawer-foot{ flex:none; padding:10px 18px 16px; border-top:1px solid var(--line-soft); background:#02061040; }
+
+  .ghost{ background:0 0; border:1px solid var(--line); color:var(--ink-dim); border-radius:var(--radius);
+    padding:8px 14px; font-size:12.5px; font-family:var(--font); cursor:pointer;
+    transition:color .15s, border-color .15s; }
+  .ghost:hover{ color:var(--ink); border-color:var(--ink-faint); }
+
+  .pill{ margin-left:auto; padding:3px 9px; font-size:10.5px; border-radius:999px; background:#e9edf60f;
+    color:var(--ink-dim); text-transform:lowercase; white-space:nowrap; }
+  .empty{ padding:30px 4px; font-size:13px; color:var(--ink-faint); }
+
+  /* ---------- motion ---------- */
+  @keyframes rise-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+  @keyframes signal{ 0%,100%{ box-shadow:0 0 #f0a41f73; } 50%{ box-shadow:0 0 0 5px #f0a41f00; } }
+  @keyframes node-pulse{ 0%,100%{ box-shadow:0 0 0 0 hsl(var(--hue) 62% 58% / .45); }
+    55%{ box-shadow:0 0 0 6px hsl(var(--hue) 62% 58% / 0); } }
+  @keyframes scrim-in{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes drawer-in{ from{ opacity:0; transform:translateX(40px); } to{ opacity:1; transform:none; } }
+
+  @media (max-width: 720px){
+    .board{ padding:16px 14px 48px; }
+    .col{ flex:0 0 86vw; }
+  }
 </style>
 </head>
 <body>
@@ -570,10 +773,12 @@
     whoami: null,
     context: null,
     view: 'deck',
+    drawer: null,
     board: {
       items: [], waiting_on_you: [], waiting_on_agents: [], columns: {}, revision: null,
       selectedId: null, detail: null, detailLoading: null,
       queueFilter: null, laneFilter: null, historyOpen: false,
+      groupBy: 'owner', agentFilter: null,
       archivedItems: [], archivedLoaded: false, archivedLoading: false,
     },
     consume: { kind: '', subject: '', agent: '', result: null, selectedOutput: null },
@@ -851,12 +1056,12 @@
   const TABS = [
     ['deck', 'Command'],
     ['board', 'Board'],
+    ['org', 'Org chart'],
     ['approvals', 'Approvals'],
+    ['consume', 'Ledger', 'soon'],
+    ['catalog', 'Agents', 'soon'],
+    ['access', 'Access', 'soon'],
     ['archive', 'Archive'],
-    ['org', 'Org'],
-    ['consume', 'Ledger'],
-    ['catalog', 'Agents'],
-    ['access', 'Access'],
     ['connection', 'Connection'],
   ];
 
@@ -916,8 +1121,9 @@
     // entry id, not every "waiting on you" reason (e.g. acknowledging a
     // platform team decision has none).
     const pendingCount = (state.board.waiting_on_you || []).filter((w) => w.entry).length;
-    return el('nav', { class: 'views' }, TABS.map(([id, label]) => {
-      const btn = el('button', { class: state.view === id ? 'on' : '' }, [label]);
+    return el('nav', { class: 'views' }, TABS.map(([id, label, soon]) => {
+      const btn = el('button', { class: (state.view === id ? 'on' : '') + (soon ? ' soon' : '') }, [label]);
+      if (soon) btn.appendChild(el('span', { class: 'soon-tag' }, ['soon']));
       if (id === 'approvals' && pendingCount > 0) btn.appendChild(el('em', { class: 'badge' }, [String(pendingCount)]));
       btn.addEventListener('click', () => { state.view = id; renderShell(); });
       return btn;
@@ -934,6 +1140,7 @@
     main.appendChild(viewport);
     app.appendChild(main);
     renderView(viewport);
+    renderDrawer(app);
   }
 
   /* ---------------- view router ---------------- */
@@ -944,9 +1151,9 @@
     if (state.view === 'board') return renderBoardView(main);
     if (state.view === 'approvals') return renderApprovalsView(main);
     if (state.view === 'archive') return renderArchivedView(main);
-    if (state.view === 'consume') return renderConsumeView(main);
-    if (state.view === 'catalog') return renderCatalogView(main);
-    if (state.view === 'access') return renderAccessView(main);
+    if (state.view === 'consume') return renderComingSoon(main, 'Ledger', 'Ask the ledger what it knows — answers filtered by your own entitlements, each citing its provenance.');
+    if (state.view === 'catalog') return renderComingSoon(main, 'Agents', 'The enterprise agents this fleet can reach, what each produces, and whether it is open to consume or needs a grant.');
+    if (state.view === 'access') return renderComingSoon(main, 'Access', 'Your live invoke grants, who approved them, and when each one expires.');
     if (state.view === 'connection') return renderConnectionView(main);
   }
 
@@ -1083,7 +1290,12 @@
   const VERB = { instruction: 'asked', proposal: 'proposed', note: 'logged', report: 'reported back', decision: 'decided' };
 
   function openLaneInBoard(lane){
-    state.board.laneFilter = lane;
+    // The board filters by the chip set now, so clicking a lane on Command
+    // lands on the board already narrowed to that agent.
+    if (!state.board.agentFilter) state.board.agentFilter = new Set();
+    state.board.agentFilter.clear();
+    state.board.agentFilter.add(lane);
+    state.board.groupBy = 'owner';
     state.view = 'board';
     renderShell();
   }
@@ -1093,6 +1305,7 @@
     state.board.detail = null;
     state.board.historyOpen = false;
     state.view = 'board';
+    state.drawer = { kind: 'item', id };
     renderShell();
   }
 
@@ -1309,70 +1522,256 @@
     main.appendChild(el('section', { class: 'deck' }, [leftAside, stage, rightAside]));
   }
 
-  /* ================= ORG ================= */
-  function renderOrgView(main){
+  /* ================= agents: identity, hue, load ================= */
+  function titleCase(s){ return String(s || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()); }
+  function agentName(id){
+    const m = (state.context && state.context.lanes && state.context.lanes[id]) || null;
+    return (m && m.name && m.name !== id) ? m.name : titleCase(id);
+  }
+  function agentRole(id){
+    const m = (state.context && state.context.lanes && state.context.lanes[id]) || null;
+    return (m && m.role) || '';
+  }
+  function agentList(){ return (state.context && state.context.agents) || []; }
+  function isAgentLane(id){ return agentList().some((a) => a.id === id); }
+  function agentTasks(id){ return (state.board.items || []).filter((i) => i.lane === id); }
+  // The load line an org node carries: what this agent is holding right now.
+  function agentLoad(id){
+    const n = agentTasks(id).length;
+    return n ? (n + ' open') : 'idle';
+  }
+  function statusLabel(key){
+    const s = state.context && state.context.statuses;
+    return (s && s[key] && s[key].name) || key;
+  }
+  // The right-hand blurb on a status column — what that column means.
+  function statusBlurb(key){
+    return ({
+      now: 'moving, ball is with us',
+      blocked: 'something must break first',
+      waiting: 'ball is with someone else',
+      parked: 'deliberately not now',
+      done: 'finished',
+      shipped: 'shipped',
+    })[key] || '';
+  }
+  function statusOrder(){
+    const statuses = state.context && state.context.statuses;
+    return statuses ? Object.keys(statuses) : ['now', 'blocked', 'waiting', 'parked', 'done', 'shipped'];
+  }
+
+  /* ================= the drawer ================= */
+  // Detail slides over the board rather than pushing it, so the board never
+  // reflows underneath you. Rendered by renderShell, so a re-render (a loaded
+  // thread, a posted verdict) keeps it open and current.
+  function openItemDrawer(id){
+    state.drawer = { kind: 'item', id };
+    state.board.selectedId = id;
+    if (!state.board.detail || state.board.detail.id !== id) state.board.detail = null;
+    renderShell();
+  }
+  function openAgentDrawer(id){ state.drawer = { kind: 'agent', id }; renderShell(); }
+  function closeDrawer(){ state.drawer = null; renderShell(); }
+
+  function renderDrawer(root){
+    const d = state.drawer;
+    if (!d) return;
+    const scrim = el('div', { class: 'scrim' });
+    scrim.addEventListener('click', closeDrawer);
+    const hue = d.kind === 'agent' ? hashHue(d.id)
+      : hashHue((state.board.items.find((i) => i.id === d.id) || {}).lane || 'x');
+    const panel = el('aside', { class: 'drawer', style: '--hue:' + hue });
+    panel.tabIndex = -1;
+    panel.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+    const close = el('button', { class: 'drawer-close', title: 'Close (Esc)' }, ['×']);
+    close.addEventListener('click', closeDrawer);
+
+    if (d.kind === 'agent') renderAgentDrawer(panel, d.id, close);
+    else renderItemDrawer(panel, d.id, close);
+
+    root.appendChild(scrim);
+    root.appendChild(panel);
+    setTimeout(() => panel.focus(), 0);
+  }
+
+  function renderAgentDrawer(panel, id, close){
+    const meta = agentList().find((a) => a.id === id) || {};
+    const tasks = agentTasks(id);
+    panel.appendChild(el('div', { class: 'drawer-head' }, [
+      el('div', { class: 'drawer-title' }, [
+        el('span', { class: 'lane-dot' }),
+        el('h2', {}, [agentName(id)]),
+      ]),
+      close,
+    ]));
+    panel.appendChild(el('div', { class: 'drawer-sub' }, [
+      agentRole(id) || 'agent in this fleet',
+      meta.orchestrator ? el('span', { class: 'pill' }, ['orchestrator']) : null,
+    ]));
+    panel.appendChild(el('div', { class: 'drawer-facts' }, [
+      el('p', {}, [el('b', {}, ['Reports to']), meta.orchestrator ? ownerName() : (meta.reports_to ? agentName(meta.reports_to) : '—')]),
+      el('p', {}, [el('b', {}, ['Carrying']), agentLoad(id)]),
+      el('p', {}, [el('b', {}, ['Lane']), id]),
+    ]));
+    const body = el('div', { class: 'drawer-body' });
+    if (!tasks.length) body.appendChild(el('div', { class: 'empty' }, ['nothing open in this lane']));
+    statusOrder().forEach((key) => {
+      const rows = tasks.filter((t) => t.status === key);
+      if (!rows.length) return;
+      body.appendChild(el('div', { class: 'col-head' }, [
+        el('span', { class: 'col-name' }, [statusLabel(key)]),
+        el('span', { class: 'col-count' }, [String(rows.length)]),
+      ]));
+      const list = el('div', { class: 'col-body', style: 'margin-bottom:14px' });
+      rows.forEach((t) => list.appendChild(boardCard(t, 'owner')));
+      body.appendChild(list);
+    });
+    panel.appendChild(body);
+  }
+
+  function renderItemDrawer(panel, id, close){
+    const item = (state.board.items || []).find((i) => i.id === id)
+      || (state.board.archivedItems || []).find((i) => i.id === id);
+    const detail = state.board.detail && state.board.detail.id === id ? state.board.detail : null;
+    if (!detail && state.board.detailLoading !== id) loadItemDetail(id);
+
+    panel.appendChild(el('div', { class: 'drawer-head' }, [
+      el('div', { class: 'drawer-title' }, [
+        el('span', { class: 'lane-dot' }),
+        el('h2', {}, [(item && item.title) || 'Item']),
+      ]),
+      close,
+    ]));
+    if (item) {
+      panel.appendChild(el('div', { class: 'drawer-sub' }, [
+        laneDisplayName(item.lane), '·', item.kind,
+        el('span', { class: 'pill' }, [statusLabel(item.status)]),
+      ]));
+      const facts = el('div', { class: 'drawer-facts' });
+      if (item.next) facts.appendChild(el('p', {}, [el('b', {}, ['Next']), item.next]));
+      if (item.waitingOn) facts.appendChild(el('p', {}, [el('b', {}, ['Waiting on']), item.waitingOn]));
+      if (item.due) facts.appendChild(el('p', {}, [el('b', {}, ['Due']), item.due]));
+      facts.appendChild(el('p', { class: 'drawer-note' }, [item.id + ' · touched ' + (item.touched || '—')]));
+      panel.appendChild(facts);
+    }
+    const body = el('div', { class: 'drawer-body' });
+    if (!detail) body.appendChild(el('div', { class: 'empty' }, ['loading the thread…']));
+    else renderItemDetail(body, detail, { compact: true });
+    panel.appendChild(body);
+  }
+
+  // These three are being rebuilt. Saying so plainly beats showing a half-built
+  // surface; the existing renderers are still in this file, unrouted.
+  function renderComingSoon(main, title, blurb){
     main.appendChild(el('div', { class: 'view-header' }, [
-      el('div', {}, [
-        el('h2', {}, ['Org']),
-        el('div', { class: 'view-sub' }, ['Every lane this fleet can address, grouped by sector, with its open count.']),
+      el('div', {}, [el('h2', {}, [title]), el('div', { class: 'view-sub' }, ['Being rebuilt.'])]),
+    ]));
+    main.appendChild(el('div', { class: 'soon-panel' }, [
+      el('div', { class: 'soon-badge' }, ['Coming soon']),
+      el('h3', {}, [title]),
+      el('p', {}, [blurb]),
+      el('p', { class: 'soon-note' }, ['This surface is being rebuilt against the house design system. The API behind it is live and checked — only the view is pending.']),
+    ]));
+  }
+
+  /* ================= ORG — the reporting tree ================= */
+  function renderOrgView(main){
+    const agents = agentList();
+    main.appendChild(el('div', { class: 'org-intro' }, [
+      el('h2', {}, ['The agent organisation']),
+      el('p', {}, [
+        agents.length + ' AI ' + (agents.length === 1 ? 'employee' : 'employees') + '. '
+        + 'The orchestrator reports to ' + ownerName() + '; every specialist lane routes through it. '
+        + 'Every lane here is a column on the board, and the count is what that agent is carrying right now.',
       ]),
     ]));
-    const sectors = buildSectors();
-    const items = state.board.items || [];
-    if (!sectors.length && !(state.context && state.context.lanes && state.context.lanes.owner)) {
-      main.appendChild(el('div', { class: 'empty-state' }, ['no lanes registered for this fleet']));
-      return;
+    if (!agents.length) { main.appendChild(el('div', { class: 'empty' }, ['no agents registered for this fleet'])); return; }
+
+    const orch = agents.find((a) => a.orchestrator) || agents[0];
+    const lanes = agents.filter((a) => a.id !== orch.id);
+
+    const node = (opts) => {
+      const n = el('button', { class: 'org-node' + (opts.kind ? ' ' + opts.kind : ''), style: '--hue:' + opts.hue }, [
+        el('span', { class: 'org-node-name' }, [opts.name]),
+        el('span', { class: 'org-node-role' }, [opts.role]),
+        el('span', { class: 'org-node-load' + (opts.load === 'idle' ? ' idle' : '') }, [opts.load]),
+      ]);
+      if (opts.onClick) n.addEventListener('click', opts.onClick); else n.disabled = true;
+      return n;
+    };
+
+    const tree = el('div', { class: 'org-tree' });
+    tree.appendChild(node({
+      kind: 'principal', hue: 40, name: ownerName(),
+      role: (state.context.employee && state.context.employee.title) || 'the principal',
+      load: (state.board.items || []).length + ' in play',
+    }));
+    tree.appendChild(el('div', { class: 'org-rail' }));
+    tree.appendChild(el('div', { class: 'org-row' }, [
+      node({
+        kind: 'chief', hue: hashHue(orch.id), name: agentName(orch.id),
+        role: agentRole(orch.id) || 'chief of staff', load: agentLoad(orch.id),
+        onClick: () => openAgentDrawer(orch.id),
+      }),
+    ]));
+    if (lanes.length) {
+      tree.appendChild(el('div', { class: 'org-rail' }));
+      tree.appendChild(el('div', { class: 'org-row wrap' }, lanes.map((a) => node({
+        kind: 'lane', hue: hashHue(a.id), name: agentName(a.id),
+        role: agentRole(a.id) || 'agent', load: agentLoad(a.id),
+        onClick: () => openAgentDrawer(a.id),
+      }))));
     }
-    const grid = el('div', { class: 'org-grid' });
-    sectors.forEach((c) => {
-      const card = el('div', { class: 'org-card' }, [
-        el('h4', { class: 'deck-group-name', style: 'color:hsl(' + c.hue + ' 46% 78%)', title: c.blurb }, [
-          el('i', { style: 'background:hsl(' + c.hue + ' 62% 58%)' }), c.name,
+    tree.appendChild(el('div', { class: 'org-rail' }));
+    main.appendChild(tree);
+
+    // What each lane may and may not do. The tree says who reports to whom; this
+    // says what the authority actually is, which is the part a reader cannot
+    // infer from a name.
+    const cards = el('div', { class: 'org-cards' });
+    [orch].concat(lanes).forEach((a) => {
+      const hue = hashHue(a.id);
+      const card = el('div', { class: 'org-card', style: '--hue:' + hue }, [
+        el('header', {}, [
+          el('h4', {}, [agentName(a.id), a.orchestrator ? el('span', { class: 'pill' }, ['orchestrator']) : null]),
+          el('div', { class: 'org-blurb' }, [agentRole(a.id) || 'agent in this fleet']),
+        ]),
+        el('div', { class: 'org-chips' }, [
+          el('span', { class: 'org-chip' }, ['reports to ' + (a.orchestrator ? ownerName() : agentName(a.reports_to || orch.id))]),
+          el('span', { class: 'org-chip' }, [agentLoad(a.id)]),
         ]),
       ]);
-      c.members.forEach((lane) => {
-        const meta = ((state.context.lanes) || {})[lane] || { name: lane, role: '' };
-        const openN = items.filter((i) => i.lane === lane).length;
-        card.appendChild(el('div', { class: 'org-row' }, [
-          el('div', {}, [el('div', { class: 'org-name' }, [meta.name]), el('div', { class: 'org-role' }, [meta.role || '—'])]),
-          el('span', { class: 'chip chip-neutral' }, [String(openN) + ' open']),
+      const can = (a.can || []);
+      const cannot = (a.cannot || []);
+      if (can.length) {
+        card.appendChild(el('div', { class: 'org-blk' }, [
+          el('div', { class: 'org-lbl' }, ['Can']),
+          el('ul', {}, can.map((t) => el('li', {}, [t]))),
         ]));
-      });
-      grid.appendChild(card);
+      }
+      if (cannot.length) {
+        card.appendChild(el('div', { class: 'org-blk no' }, [
+          el('div', { class: 'org-lbl' }, ['Cannot']),
+          el('ul', {}, cannot.map((t) => el('li', {}, [t]))),
+        ]));
+      }
+      if (!can.length && !cannot.length) {
+        card.appendChild(el('div', { class: 'org-blurb' }, ['No authority declared for this lane yet.']));
+      }
+      cards.appendChild(card);
     });
-    const ownerLane = (state.context.lanes || {}).owner;
-    if (ownerLane) {
-      const openN = items.filter((i) => i.lane === 'owner').length;
-      const hue = hashHue('owner-lane');
-      grid.appendChild(el('div', { class: 'org-card' }, [
-        el('h4', { class: 'deck-group-name', style: 'color:hsl(' + hue + ' 46% 78%)' }, [el('i', { style: 'background:hsl(' + hue + ' 62% 58%)' }), 'Owner']),
-        el('div', { class: 'org-row' }, [
-          el('div', {}, [el('div', { class: 'org-name' }, [ownerName()]), el('div', { class: 'org-role' }, [ownerLane.role || 'the person running this board'])]),
-          el('span', { class: 'chip chip-neutral' }, [String(openN) + ' open']),
-        ]),
-      ]));
-    }
-    main.appendChild(grid);
+    main.appendChild(cards);
   }
 
   /* ================= BOARD ================= */
-  //
-  // An item's status (where the work is) and its lane (who owns it) are two
-  // separate axes now; a pending proposal lives on the thread, not on the item.
-  // This view is built around that: columns group by status, two queues surface
-  // what needs a person versus what needs an agent, and the detail panel reads
-  // the conversation the server already split from its own bookkeeping.
-
   function laneName(laneId){
     const lanes = state.context && state.context.lanes;
     return (lanes && lanes[laneId] && lanes[laneId].name) || laneId;
   }
   function laneDisplayName(laneId){
-    return laneId === 'owner' ? ownerName() : laneName(laneId);
+    return laneId === 'owner' ? ownerName() : agentName(laneId);
   }
-
-  // Who said this, in words. The owner's own id resolves to their name; 'system'
-  // is the board itself; anything else is a lane.
   function actorLabel(author){
     if (author === 'system') return 'system';
     const who = state.whoami && state.whoami.employee;
@@ -1394,22 +1793,37 @@
     return (entry.author || 'A').slice(0, 1).toUpperCase();
   }
 
-  function statusOrder(){
-    const statuses = state.context && state.context.statuses;
-    return statuses ? Object.keys(statuses) : ['now', 'blocked', 'waiting', 'parked', 'done', 'shipped'];
+  // One card. It carries whatever the current grouping does not already say.
+  function boardCard(item, groupBy){
+    const wYou = state.board.waiting_on_you || [];
+    const pending = wYou.some((w) => w.item === item.id && w.entry);
+    const meta = el('div', { class: 'card-meta' }, [
+      el('span', { class: 'kind' }, [item.kind]),
+      groupBy !== 'owner' ? el('span', { class: 'who' }, [laneDisplayName(item.lane)]) : null,
+      groupBy !== 'status' ? el('span', {}, [statusLabel(item.status)]) : null,
+      item.tag ? el('span', { class: 'tag' }, [item.tag]) : null,
+      pending ? el('span', { class: 'pending' }, ['needs you']) : null,
+    ]);
+    const card = el('button', {
+      class: 'mc-card' + (state.drawer && state.drawer.kind === 'item' && state.drawer.id === item.id ? ' active' : ''),
+      style: '--hue:' + hashHue(item.lane),
+    }, [
+      el('div', { class: 'card-top' }, [el('span', { class: 'lane-dot' }), el('h3', {}, [item.title])]),
+      meta,
+    ]);
+    card.addEventListener('click', () => openItemDrawer(item.id));
+    return card;
   }
 
   function renderBoardView(main){
-    const ctx = state.context;
     const items = state.board.items || [];
     const wYou = state.board.waiting_on_you || [];
     const wAgents = state.board.waiting_on_agents || [];
 
-    const newItemBtn = el('button', { class: 'btn-ghost' }, ['+ New item']);
+    const newItemBtn = el('button', { class: 'ghost' }, ['+ New item']);
     newItemBtn.addEventListener('click', () => openNewItemDialog());
     const instructBtn = el('button', { class: 'btn' }, ['+ Instruct']);
     instructBtn.addEventListener('click', () => openInstructDialog());
-
     main.appendChild(el('div', { class: 'view-header' }, [
       el('div', {}, [
         el('h2', {}, ['Board']),
@@ -1418,106 +1832,114 @@
       el('div', { class: 'row' }, [newItemBtn, instructBtn]),
     ]));
 
-    // Two queues, and neither is the other: what needs a verdict (also on
-    // Approvals), and what an agent has not answered yet.
-    const queueRow = el('div', { class: 'queue-row' });
-    const youCard = el('button', { class: 'queue-card' + (state.board.queueFilter === 'you' ? ' active' : '') }, [
-      el('div', { class: 'queue-count' }, [String(wYou.length)]),
-      el('div', { class: 'queue-label' }, ['Waiting on you']),
-    ]);
-    youCard.addEventListener('click', () => { state.board.queueFilter = state.board.queueFilter === 'you' ? null : 'you'; renderShell(); });
-    const agentsCard = el('button', { class: 'queue-card' + (state.board.queueFilter === 'agents' ? ' active' : '') }, [
-      el('div', { class: 'queue-count' }, [String(wAgents.length)]),
-      el('div', { class: 'queue-label' }, ['Waiting on an agent']),
-    ]);
-    agentsCard.addEventListener('click', () => { state.board.queueFilter = state.board.queueFilter === 'agents' ? null : 'agents'; renderShell(); });
-    queueRow.appendChild(youCard);
-    queueRow.appendChild(agentsCard);
-    if (state.board.queueFilter) {
-      const clearBtn = el('button', { class: 'filter-btn active' }, ['clear queue filter ×']);
-      clearBtn.addEventListener('click', () => { state.board.queueFilter = null; renderShell(); });
-      queueRow.appendChild(clearBtn);
-    }
-    if (state.board.laneFilter) {
-      const laneClear = el('button', { class: 'filter-btn active' }, ['lane: ' + laneDisplayName(state.board.laneFilter) + ' ×']);
-      laneClear.addEventListener('click', () => { state.board.laneFilter = null; renderShell(); });
-      queueRow.appendChild(laneClear);
-    }
-    main.appendChild(queueRow);
+    // ---- controls: group by, search, lane chips, queue toggles ----
+    const gb = state.board.groupBy || 'owner';
+    const seg = el('div', { class: 'seg' }, [['status', 'Status'], ['owner', 'Owner'], ['kind', 'Kind']].map(([k, label]) => {
+      const b = el('button', { class: gb === k ? 'on' : '' }, [label]);
+      b.addEventListener('click', () => { state.board.groupBy = k; renderShell(); });
+      return b;
+    }));
 
-    let displayItems = items;
+    const search = el('input', { class: 'search', type: 'text', placeholder: 'Search titles, tags, next actions…', value: state.board.q || '' });
+    search.addEventListener('input', () => { state.board.q = search.value; scheduleBoardRender(); });
+
+    if (!state.board.agentFilter) state.board.agentFilter = new Set();
+    const af = state.board.agentFilter;
+    const chips = el('div', { class: 'lane-chips' });
+    agentList().forEach((a) => {
+      const chip = el('button', { class: 'lane-chip' + (af.has(a.id) ? ' on' : ''), style: '--hue:' + hashHue(a.id) }, [agentName(a.id)]);
+      chip.addEventListener('click', () => { if (af.has(a.id)) af.delete(a.id); else af.add(a.id); renderShell(); });
+      chips.appendChild(chip);
+    });
+    if (af.size) {
+      const clear = el('button', { class: 'lane-chip clear' }, ['clear ' + af.size]);
+      clear.addEventListener('click', () => { af.clear(); renderShell(); });
+      chips.appendChild(clear);
+    }
+
+    const toggles = el('div', { class: 'toggles' }, [
+      queueToggle('you', 'Waiting on you', wYou.length),
+      queueToggle('agents', 'Waiting on an agent', wAgents.length),
+    ]);
+
+    main.appendChild(el('div', { class: 'controls' }, [seg, search, chips, toggles]));
+
+    // ---- filter ----
+    let disp = items;
     if (state.board.queueFilter === 'you') {
       const ids = new Set(wYou.map((w) => w.item));
-      displayItems = items.filter((i) => ids.has(i.id));
+      disp = disp.filter((i) => ids.has(i.id));
     } else if (state.board.queueFilter === 'agents') {
       const ids = new Set(wAgents.map((w) => w.item));
-      displayItems = items.filter((i) => ids.has(i.id));
+      disp = disp.filter((i) => ids.has(i.id));
     }
-    if (state.board.laneFilter) {
-      displayItems = displayItems.filter((i) => i.lane === state.board.laneFilter);
-    }
-
-    const columnsWrap = el('div', { class: 'board-columns' });
-    let anyColumn = false;
-    statusOrder().forEach((key) => {
-      const colItems = displayItems.filter((i) => i.status === key);
-      if (!colItems.length) return;
-      anyColumn = true;
-      const statuses = ctx && ctx.statuses;
-      const label = (statuses && statuses[key] && statuses[key].name) || key;
-      const col = el('div', { class: 'board-column' });
-      col.appendChild(el('div', { class: 'board-column-head' }, [
-        el('span', {}, [label]),
-        el('span', { class: 'badge-count' }, [String(colItems.length)]),
-      ]));
-      const body = el('div', { class: 'board-column-body' });
-      colItems.forEach((item) => body.appendChild(renderItemCard(item, wYou)));
-      col.appendChild(body);
-      columnsWrap.appendChild(col);
-    });
-    if (!anyColumn) columnsWrap.appendChild(el('div', { class: 'empty-state' }, ['no items match this view']));
-    main.appendChild(columnsWrap);
-
-    // Default the detail to whatever needs the owner, not to whatever sorted
-    // first, but only among items actually on the board right now.
-    if (!state.board.selectedId || !displayItems.some((i) => i.id === state.board.selectedId)) {
-      const firstWaiting = wYou.find((w) => displayItems.some((i) => i.id === w.item));
-      state.board.selectedId = (firstWaiting && firstWaiting.item) || (displayItems[0] && displayItems[0].id) || null;
+    if (af.size) disp = disp.filter((i) => af.has(i.lane));
+    const q = (state.board.q || '').trim().toLowerCase();
+    if (q) {
+      disp = disp.filter((i) => [i.title, i.tag, i.next, i.kind, i.lane]
+        .some((v) => v && String(v).toLowerCase().includes(q)));
     }
 
-    const detailWrap = el('div', { style: 'margin-top:18px' });
-    if (state.board.selectedId) {
-      if (!state.board.detail || state.board.detail.id !== state.board.selectedId) {
-        if (state.board.detailLoading !== state.board.selectedId) loadItemDetail(state.board.selectedId);
-        detailWrap.appendChild(el('div', { class: 'empty-state' }, ['loading item...']));
-      } else {
-        renderItemDetail(detailWrap, state.board.detail);
-      }
+    // ---- columns for the chosen grouping ----
+    const cols = [];
+    if (gb === 'status') {
+      statusOrder().forEach((k) => {
+        const its = disp.filter((i) => i.status === k);
+        if (its.length) cols.push({ name: statusLabel(k), blurb: statusBlurb(k), items: its, hue: 210 });
+      });
+    } else if (gb === 'kind') {
+      const kinds = [];
+      disp.forEach((i) => { if (!kinds.includes(i.kind)) kinds.push(i.kind); });
+      kinds.forEach((k) => cols.push({ name: k, blurb: '', items: disp.filter((i) => i.kind === k), hue: 210 }));
     } else {
-      detailWrap.appendChild(el('div', { class: 'empty-state' }, ['nothing on the board yet: use + Instruct or + New item']));
+      const laneIds = agentList().map((a) => a.id);
+      disp.forEach((i) => { if (!laneIds.includes(i.lane)) laneIds.push(i.lane); });
+      laneIds.forEach((lane) => cols.push({
+        name: laneDisplayName(lane), blurb: isAgentLane(lane) ? agentRole(lane) : 'you',
+        items: disp.filter((i) => i.lane === lane), hue: hashHue(lane),
+        agent: isAgentLane(lane) ? lane : null,
+      }));
     }
-    main.appendChild(detailWrap);
+
+    if (!cols.length) { main.appendChild(el('div', { class: 'empty' }, ['nothing matches this view'])); return; }
+
+    const columns = el('div', { class: 'columns' });
+    cols.forEach((c) => {
+      const head = el(c.agent ? 'button' : 'div', { class: 'col-head' + (c.agent ? ' lane' : '') }, [
+        el('span', { class: 'col-name' }, [c.name]),
+        el('span', { class: 'col-count' }, [String(c.items.length)]),
+        c.blurb ? el('span', { class: 'col-blurb' }, [c.blurb]) : null,
+      ]);
+      if (c.agent) head.addEventListener('click', () => openAgentDrawer(c.agent));
+      const body = el('div', { class: 'col-body' });
+      if (!c.items.length) body.appendChild(el('div', { class: 'empty', style: 'padding:14px 4px; font-size:12px' }, ['nothing open']));
+      c.items.forEach((it) => body.appendChild(boardCard(it, gb)));
+      columns.appendChild(el('div', { class: 'col', style: '--hue:' + c.hue }, [head, body]));
+    });
+    main.appendChild(columns);
   }
 
-  function renderItemCard(item, wYou){
-    const pendingHere = (wYou || []).some((w) => w.item === item.id && w.entry);
-    const metaBits = [];
-    if (item.next) metaBits.push('next: ' + item.next);
-    if (item.waitingOn) metaBits.push('waiting on: ' + item.waitingOn);
-    const children = [
-      el('div', { class: 'item-title' }, [pendingHere ? el('span', { class: 'waiting-badge' }) : null, item.title]),
-      el('div', { class: 'item-meta' }, [laneDisplayName(item.lane) + ' · ' + item.kind]),
-    ];
-    if (metaBits.length) children.push(el('div', { style: 'font-size:11px; color:var(--ink-faint); margin-top:4px' }, [metaBits.join(' · ')]));
-    if (item.tag) children.push(el('div', { style: 'margin-top:5px' }, [el('span', { class: 'chip chip-neutral' }, [item.tag])]));
-    const card = el('button', { class: 'item-card' + (state.board.selectedId === item.id ? ' selected' : '') }, children);
-    card.addEventListener('click', () => {
-      state.board.selectedId = item.id;
-      state.board.detail = null;
-      state.board.historyOpen = false;
+  function queueToggle(key, label, n){
+    const on = state.board.queueFilter === key;
+    const b = el('button', { class: 'toggle' + (on ? ' on' : '') }, [el('i', {}), label + ' · ' + n]);
+    b.addEventListener('click', () => { state.board.queueFilter = on ? null : key; renderShell(); });
+    return b;
+  }
+
+  // Typing should not rebuild the whole shell on every keystroke and steal focus.
+  let boardRenderTimer = null;
+  function scheduleBoardRender(){
+    clearTimeout(boardRenderTimer);
+    boardRenderTimer = setTimeout(() => {
+      const active = document.activeElement;
+      const caret = active && active.selectionStart;
       renderShell();
-    });
-    return card;
+      const next = document.querySelector('.search');
+      if (next && active && active.className === 'search') {
+        next.focus();
+        if (caret != null) { try { next.setSelectionRange(caret, caret); } catch (e) {} }
+      }
+    }, 140);
   }
 
   /* ---- approvals: the pending-proposal list ---- */
@@ -1617,11 +2039,14 @@
   }
 
   /* ---- item detail ---- */
-  function renderItemDetail(container, detail){
+  function renderItemDetail(container, detail, opts){
     clear(container);
     const item = detail.item;
     const ctx = state.context;
     const myAgents = (ctx && ctx.agents) || [];
+    // In the drawer the head already carries the title, lane, kind, status and
+    // the facts, so the panel's own header would just say it twice.
+    const compact = opts && opts.compact;
 
     const headerChips = [
       el('span', { class: 'chip chip-neutral' }, [laneDisplayName(item.lane)]),
@@ -1630,7 +2055,7 @@
     if (item.tag) headerChips.push(el('span', { class: 'chip chip-neutral' }, [item.tag]));
     if (item.archived) headerChips.push(el('span', { class: 'chip chip-red' }, ['archived']));
 
-    container.appendChild(el('div', { class: 'card' }, [
+    if (!compact) container.appendChild(el('div', { class: 'card' }, [
       el('div', { class: 'row-between' }, [
         el('h3', {}, [item.title]),
         itemStatusChip(item.status),

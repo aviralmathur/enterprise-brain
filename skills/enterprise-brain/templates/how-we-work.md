@@ -72,7 +72,7 @@ prevent.
 If the fleet runs no board, omit `{{BOARD}}` and this section collapses to that last
 paragraph: the durable half still has to reach memory.
 
-## Memory (see the memory-model)
+## Memory (full contract: `_control/memory-model.md`)
 
 - Write only your own namespace; propose fleet facts. Only {{BRAIN}} writes `_shared/`.
 - Check for an existing file before writing; update, don't duplicate.
