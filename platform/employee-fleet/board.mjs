@@ -70,7 +70,14 @@ export class FleetBoard {
     const f = this.roster.get(this.fleet);
     if (!f) return null;
     const reg = {};
-    for (const a of f.agents) reg[a.id] = { name: a.id, role: a.purpose || 'agent in this fleet' };
+    for (const a of f.agents) {
+      reg[a.id] = {
+        name: a.id,
+        role: a.purpose || 'agent in this fleet',
+        orchestrator: a.orchestrator || false,
+        reports_to: a.reports_to || null,
+      };
+    }
     return reg;
   }
 

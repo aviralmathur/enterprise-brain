@@ -18,12 +18,30 @@ team runs the light one. Neither can read the other's.
 
 ### Fleet Mission Control — one employee's private cockpit
 
-![Fleet Mission Control](img/fleet-mission-control.png)
+![Fleet Mission Control — the Jira-style board](img/northwind-board.png)
 
-Alice's own board. Her agents (`analyst`, `briefer`, `builder`) orbit the centre; the SITUATION
-panel is her work by state; LIVE SIGNALS is the running thread of what each agent proposed and
-what she decided. The last signal — *"published recon_q3 at scope 2 named: alice, b…"* — is the
-ledger reporting an audience it **computed**, not one the agent asked for (see below).
+One employee's own board, as a **Jira-style board**: every AI employee is a swimlane row, the
+statuses are columns, and each agent carries a state badge — *Working*, *Waiting*, *Blocked*,
+*Idle* — derived from its own tasks. Click any agent's lane header and its state opens as a
+**pop-up**: role, who it reports to, and its open tasks, each a link back to the item.
+
+The board above is the Northwind Ops fleet (`node northwind.mjs`): the `Reconcile on-time`
+task sits with **Tally**, the `Ardent Freight` note waits on **Relay**, and the whole thing is
+one glance.
+
+### Org chart — owner, orchestrator, employees
+
+![Org chart](img/northwind-orgchart.png)
+
+The **Org chart** tab is a real reporting tree: the fleet owner (a human) at the top, the
+**orchestrator** (the chief-of-staff agent) beneath, and every other AI employee reporting
+through it. Every node is clickable — same state pop-up as the board.
+
+### Platform Mission Control — the governance desk
+
+![Platform Mission Control](img/platform-mission-control.png)
+
+The platform team's review surface. Outputs by state and status, the grant review queue, and
 
 ### Platform Mission Control — the governance desk
 

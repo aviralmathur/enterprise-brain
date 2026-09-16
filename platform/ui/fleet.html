@@ -552,6 +552,109 @@
       animation: none !important;
     }
   }
+
+  /* ======================================================================
+     v2 — Jira board, org chart, agent pop-up. Clearer, calmer, easier to read.
+     ====================================================================== */
+
+  /* the state badge every agent carries, one vocabulary everywhere */
+  .state-pill{
+    display:inline-flex; align-items:center; gap:5px; flex:none;
+    font-size:11px; font-weight:600; letter-spacing:.02em;
+    padding:3px 9px; border-radius:999px; white-space:nowrap;
+    border:1px solid transparent;
+  }
+  .state-pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .st-now{ color:var(--ok); background:var(--ok-soft); border-color:rgba(62,207,142,.28); }
+  .st-wait{ color:var(--accent-bright); background:var(--accent-soft); border-color:var(--accent-dim); }
+  .st-blocked{ color:var(--hot); background:var(--hot-soft); border-color:rgba(255,109,109,.3); }
+  .st-idle{ color:var(--ink-faint); background:rgba(155,166,191,.1); border-color:var(--line); }
+
+  /* status dot palette, shared by the legend, the swimlane header and the pop-up */
+  .am-task-dot, .swim-legend-item > .am-task-dot{ width:8px; height:8px; border-radius:50%; flex:none; display:inline-block; }
+  .d-now{ background:var(--ok); } .d-blocked{ background:var(--hot); }
+  .d-wait{ background:var(--accent-bright); } .d-parked{ background:var(--ink-faint); }
+  .d-done{ background:#5b6b8f; } .d-idle{ background:var(--line); }
+
+  /* ---- the legend above the board ---- */
+  .swim-legend{ display:flex; flex-wrap:wrap; gap:16px; margin:2px 0 12px; padding:0 2px; }
+  .swim-legend-item{ display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-dim); }
+
+  /* ---- the Jira swimlane board ---- */
+  .swimboard-scroll{ overflow-x:auto; padding-bottom:6px; }
+  .swimboard{ min-width:640px; border:1px solid var(--line-soft); border-radius:12px; overflow:hidden; background:var(--panel); }
+  .swim-row{ display:grid; align-items:stretch; border-top:1px solid var(--line-soft); }
+  .swim-row:first-child{ border-top:0; }
+  .swim-head{ position:sticky; top:0; background:var(--panel-2); z-index:2; }
+  .swim-corner{ display:flex; align-items:center; padding:11px 14px; font-size:11px; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--ink-faint); font-weight:700; }
+  .swim-colhead{ display:flex; align-items:center; gap:8px; padding:11px 14px; font-size:12px; font-weight:600;
+    color:var(--ink-dim); border-left:1px solid var(--line-soft); }
+  .swim-lane{ display:flex; align-items:center; gap:10px; text-align:left; width:100%;
+    padding:12px 14px; background:var(--panel-2); border:0; border-right:1px solid var(--line-soft);
+    color:var(--ink); transition:background .12s; }
+  button.swim-lane{ cursor:pointer; }
+  button.swim-lane:hover{ background:var(--panel-3); }
+  .swim-lane-static{ cursor:default; }
+  .swim-avatar{ width:30px; height:30px; border-radius:8px; flex:none; display:flex; align-items:center;
+    justify-content:center; font-weight:700; font-size:13px; color:#fff; text-transform:uppercase; }
+  .swim-lane-body{ min-width:0; flex:1; }
+  .swim-lane-name{ font-weight:600; font-size:13.5px; }
+  .swim-lane-role{ font-size:11px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .swim-cell{ padding:8px; border-left:1px solid var(--line-soft); display:flex; flex-direction:column; gap:8px;
+    background:repeating-linear-gradient(-45deg, transparent, transparent 9px, rgba(255,255,255,.008) 9px, rgba(255,255,255,.008) 10px); }
+
+  /* cards sit in the cells; a touch lighter than before */
+  .swim-cell .item-card{ width:100%; }
+
+  /* ---- the org chart ---- */
+  .orgchart{ display:flex; flex-direction:column; align-items:center; padding:14px 8px 28px; }
+  .orgc-level{ display:flex; justify-content:center; }
+  .orgc-connector{ width:2px; height:26px; background:var(--line); }
+  .orgc-children{ display:flex; justify-content:center; gap:18px; flex-wrap:wrap; position:relative; padding-top:26px; }
+  .orgc-children::before{ content:''; position:absolute; top:0; left:12%; right:12%; height:2px; background:var(--line); }
+  .orgc-child{ position:relative; }
+  .orgc-child::before{ content:''; position:absolute; top:-26px; left:50%; width:2px; height:26px; background:var(--line); }
+  .orgc-node{ display:flex; align-items:center; gap:11px; text-align:left; min-width:210px; max-width:280px;
+    padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink); }
+  button.orgc-node{ cursor:pointer; transition:border-color .12s, transform .12s, background .12s; }
+  button.orgc-node:hover{ border-color:var(--accent-dim); background:var(--panel-3); transform:translateY(-1px); }
+  button.orgc-node:disabled{ cursor:default; }
+  .orgc-owner{ background:linear-gradient(180deg, var(--panel-3), var(--panel-2)); border-color:var(--accent-dim); }
+  .orgc-orch{ border-color:rgba(240,164,31,.35); }
+  .orgc-avatar{ width:34px; height:34px; border-radius:9px; flex:none; display:flex; align-items:center;
+    justify-content:center; font-weight:700; color:#fff; text-transform:uppercase; }
+  .orgc-owner .orgc-avatar{ background:var(--accent); color:var(--accent-ink); }
+  .orgc-body{ flex:1; min-width:0; }
+  .orgc-name{ font-weight:700; font-size:14px; }
+  .orgc-sub{ font-size:11.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* ---- the agent pop-up ---- */
+  .am-card{ position:relative; width:min(480px, 100%); background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:20px; box-shadow:0 24px 60px rgba(0,0,0,.5); }
+  .am-close{ position:absolute; top:12px; right:12px; width:28px; height:28px; border-radius:7px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--ink-dim); font-size:16px; line-height:1; }
+  .am-close:hover{ color:var(--ink); border-color:var(--line); background:var(--panel-3); }
+  .am-head{ display:flex; align-items:center; gap:12px; padding-right:32px; }
+  .am-avatar{ width:44px; height:44px; border-radius:11px; flex:none; display:flex; align-items:center;
+    justify-content:center; font-weight:700; font-size:18px; color:#fff; text-transform:uppercase; }
+  .am-id{ flex:1; min-width:0; }
+  .am-name{ font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px; }
+  .am-orch{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--accent-bright);
+    background:var(--accent-soft); border:1px solid var(--accent-dim); padding:2px 6px; border-radius:5px; }
+  .am-role{ font-size:12.5px; color:var(--ink-dim); margin-top:2px; }
+  .am-meta{ display:flex; gap:10px; margin:16px 0; }
+  .am-kv{ flex:1; background:var(--panel-2); border:1px solid var(--line-soft); border-radius:9px; padding:9px 11px; }
+  .am-kv span{ display:block; font-size:11px; color:var(--ink-faint); }
+  .am-kv b{ font-size:13.5px; font-weight:600; }
+  .am-tasks{ display:flex; flex-direction:column; gap:6px; max-height:46vh; overflow-y:auto; }
+  .am-status{ font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint);
+    font-weight:700; margin-top:8px; }
+  .am-task{ display:flex; align-items:center; gap:9px; width:100%; text-align:left; padding:9px 11px;
+    background:var(--panel-2); border:1px solid var(--line-soft); border-radius:8px; color:var(--ink); }
+  .am-task:hover{ border-color:var(--accent-dim); background:var(--panel-3); }
+  .am-task-title{ flex:1; min-width:0; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .am-task-kind{ font-size:11px; color:var(--ink-faint); flex:none; }
 </style>
 </head>
 <body>
@@ -568,7 +671,7 @@
     token: null,
     whoami: null,
     context: null,
-    view: 'deck',
+    view: 'board',
     board: {
       items: [], waiting_on_you: [], waiting_on_agents: [], columns: {}, revision: null,
       selectedId: null, detail: null, detailLoading: null,
@@ -848,14 +951,13 @@
 
   /* ---------------- shell / top / tabs ---------------- */
   const TABS = [
-    ['deck', 'Command'],
     ['board', 'Board'],
+    ['org', 'Org chart'],
     ['approvals', 'Approvals'],
-    ['archive', 'Archive'],
-    ['org', 'Org'],
     ['consume', 'Ledger'],
     ['catalog', 'Agents'],
     ['access', 'Access'],
+    ['archive', 'Archive'],
     ['connection', 'Connection'],
   ];
 
@@ -1308,50 +1410,149 @@
     main.appendChild(el('section', { class: 'deck' }, [leftAside, stage, rightAside]));
   }
 
-  /* ================= ORG ================= */
+  /* ================= agents: names, state, the pop-up ================= */
+  function titleCase(s){ return String(s || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()); }
+  function agentName(id){
+    const m = (state.context && state.context.lanes && state.context.lanes[id]) || null;
+    return (m && m.name && m.name !== id) ? m.name : titleCase(id);
+  }
+  function agentRole(id){
+    const m = (state.context && state.context.lanes && state.context.lanes[id]) || null;
+    return (m && m.role) || '';
+  }
+  function agentList(){ return (state.context && state.context.agents) || []; }
+  function agentTasks(id){ return (state.board.items || []).filter((i) => i.lane === id); }
+
+  // The state a person reads at a glance, derived from the agent's own tasks.
+  function agentState(id){
+    const ts = agentTasks(id);
+    const wYou = state.board.waiting_on_you || [];
+    const pendingHere = wYou.some((w) => w.entry && ts.some((t) => t.id === w.item));
+    if (ts.some((t) => t.status === 'blocked')) return { label: 'Blocked', cls: 'st-blocked' };
+    if (ts.some((t) => t.status === 'now')) return { label: 'Working', cls: 'st-now' };
+    if (pendingHere || ts.some((t) => t.status === 'waiting')) return { label: 'Waiting', cls: 'st-wait' };
+    if (!ts.length) return { label: 'Idle', cls: 'st-idle' };
+    return { label: 'On track', cls: 'st-idle' };
+  }
+
+  // The agent state as a POP-UP, not an inline list. Opened from a swimlane
+  // header or an org-chart node.
+  function openAgentModal(id){
+    const overlay = modalOverlay();
+    const st = agentState(id);
+    const ts = agentTasks(id);
+    const meta = (state.context.agents || []).find((a) => a.id === id) || {};
+    const reportsTo = meta.orchestrator ? ownerName()
+      : (meta.reports_to ? agentName(meta.reports_to) : '—');
+    const byStatus = {};
+    ts.forEach((t) => { (byStatus[t.status] = byStatus[t.status] || []).push(t); });
+
+    const taskEls = [];
+    statusOrder().forEach((key) => {
+      const rows = byStatus[key] || [];
+      if (!rows.length) return;
+      taskEls.push(el('div', { class: 'am-status' }, [statusLabel(key) + ' · ' + rows.length]));
+      rows.forEach((t) => {
+        const row = el('button', { class: 'am-task' }, [
+          el('span', { class: 'am-task-dot ' + statusDotClass(key) }),
+          el('span', { class: 'am-task-title' }, [t.title]),
+          el('span', { class: 'am-task-kind' }, [t.kind]),
+        ]);
+        row.addEventListener('click', () => {
+          overlay.remove();
+          state.view = 'board'; state.board.selectedId = t.id; state.board.detail = null; renderShell();
+        });
+        taskEls.push(row);
+      });
+    });
+
+    const card = el('div', { class: 'am-card' }, [
+      el('div', { class: 'am-head' }, [
+        el('div', { class: 'am-avatar', style: 'background:hsl(' + hashHue(id) + ' 55% 42%)' }, [agentName(id).slice(0, 1)]),
+        el('div', { class: 'am-id' }, [
+          el('div', { class: 'am-name' }, [agentName(id), meta.orchestrator ? el('span', { class: 'am-orch' }, ['orchestrator']) : null]),
+          el('div', { class: 'am-role' }, [agentRole(id) || '—']),
+        ]),
+        el('span', { class: 'state-pill ' + st.cls }, [st.label]),
+      ]),
+      el('div', { class: 'am-meta' }, [
+        el('div', { class: 'am-kv' }, [el('span', {}, ['Reports to']), el('b', {}, [reportsTo])]),
+        el('div', { class: 'am-kv' }, [el('span', {}, ['Open tasks']), el('b', {}, [String(ts.length)])]),
+      ]),
+      el('div', { class: 'am-tasks' }, taskEls.length ? taskEls : [el('div', { class: 'empty-state' }, ['no open tasks'])]),
+    ]);
+    const close = el('button', { class: 'am-close', title: 'Close' }, ['×']);
+    close.addEventListener('click', () => overlay.remove());
+    card.insertBefore(close, card.firstChild);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+
+  function statusLabel(key){
+    const s = state.context && state.context.statuses;
+    return (s && s[key] && s[key].name) || key;
+  }
+  function statusDotClass(key){
+    return ({ now: 'd-now', blocked: 'd-blocked', waiting: 'd-wait', parked: 'd-parked', done: 'd-done', shipped: 'd-done' })[key] || 'd-idle';
+  }
+
+  /* ================= ORG CHART ================= */
   function renderOrgView(main){
     main.appendChild(el('div', { class: 'view-header' }, [
       el('div', {}, [
-        el('h2', {}, ['Org']),
-        el('div', { class: 'view-sub' }, ['Every lane this fleet can address, grouped by sector, with its open count.']),
+        el('h2', {}, ['Org chart']),
+        el('div', { class: 'view-sub' }, ['The fleet owner, the orchestrator, and every AI employee reporting through it. Click anyone to see their state.']),
       ]),
     ]));
-    const sectors = buildSectors();
-    const items = state.board.items || [];
-    if (!sectors.length && !(state.context && state.context.lanes && state.context.lanes.owner)) {
-      main.appendChild(el('div', { class: 'empty-state' }, ['no lanes registered for this fleet']));
+
+    const agents = agentList();
+    if (!agents.length) {
+      main.appendChild(el('div', { class: 'empty-state' }, ['no agents registered for this fleet']));
       return;
     }
-    const grid = el('div', { class: 'org-grid' });
-    sectors.forEach((c) => {
-      const card = el('div', { class: 'org-card' }, [
-        el('h4', { class: 'deck-group-name', style: 'color:hsl(' + c.hue + ' 46% 78%)', title: c.blurb }, [
-          el('i', { style: 'background:hsl(' + c.hue + ' 62% 58%)' }), c.name,
+    const orch = agents.find((a) => a.orchestrator) || agents[0];
+    const children = agents.filter((a) => a.id !== orch.id);
+
+    const node = (opts) => {
+      const n = el('button', { class: 'orgc-node' + (opts.kind ? ' ' + opts.kind : '') }, [
+        el('div', { class: 'orgc-avatar', style: 'background:' + (opts.avatarBg || 'var(--panel-3)') }, [opts.initial]),
+        el('div', { class: 'orgc-body' }, [
+          el('div', { class: 'orgc-name' }, [opts.name]),
+          el('div', { class: 'orgc-sub' }, [opts.sub]),
         ]),
+        opts.state ? el('span', { class: 'state-pill ' + opts.state.cls }, [opts.state.label]) : null,
       ]);
-      c.members.forEach((lane) => {
-        const meta = ((state.context.lanes) || {})[lane] || { name: lane, role: '' };
-        const openN = items.filter((i) => i.lane === lane).length;
-        card.appendChild(el('div', { class: 'org-row' }, [
-          el('div', {}, [el('div', { class: 'org-name' }, [meta.name]), el('div', { class: 'org-role' }, [meta.role || '—'])]),
-          el('span', { class: 'chip chip-neutral' }, [String(openN) + ' open']),
+      if (opts.onClick) n.addEventListener('click', opts.onClick); else n.disabled = true;
+      return n;
+    };
+
+    const chart = el('div', { class: 'orgchart' });
+    // Owner (the human)
+    chart.appendChild(el('div', { class: 'orgc-level' }, [
+      node({ kind: 'orgc-owner', initial: ownerName().slice(0, 1), name: ownerName(),
+        sub: (state.context.employee && state.context.employee.title) || 'fleet owner' }),
+    ]));
+    chart.appendChild(el('div', { class: 'orgc-connector' }));
+    // Orchestrator
+    chart.appendChild(el('div', { class: 'orgc-level' }, [
+      node({ kind: 'orgc-orch', initial: agentName(orch.id).slice(0, 1), avatarBg: 'hsl(' + hashHue(orch.id) + ' 55% 42%)',
+        name: agentName(orch.id), sub: 'orchestrator · ' + (agentRole(orch.id) || 'chief of staff'),
+        state: agentState(orch.id), onClick: () => openAgentModal(orch.id) }),
+    ]));
+    // Children reporting to the orchestrator
+    if (children.length) {
+      chart.appendChild(el('div', { class: 'orgc-connector' }));
+      const row = el('div', { class: 'orgc-children' });
+      children.forEach((a) => {
+        row.appendChild(el('div', { class: 'orgc-child' }, [
+          node({ initial: agentName(a.id).slice(0, 1), avatarBg: 'hsl(' + hashHue(a.id) + ' 55% 42%)',
+            name: agentName(a.id), sub: agentRole(a.id) || 'agent', state: agentState(a.id),
+            onClick: () => openAgentModal(a.id) }),
         ]));
       });
-      grid.appendChild(card);
-    });
-    const ownerLane = (state.context.lanes || {}).owner;
-    if (ownerLane) {
-      const openN = items.filter((i) => i.lane === 'owner').length;
-      const hue = hashHue('owner-lane');
-      grid.appendChild(el('div', { class: 'org-card' }, [
-        el('h4', { class: 'deck-group-name', style: 'color:hsl(' + hue + ' 46% 78%)' }, [el('i', { style: 'background:hsl(' + hue + ' 62% 58%)' }), 'Owner']),
-        el('div', { class: 'org-row' }, [
-          el('div', {}, [el('div', { class: 'org-name' }, [ownerName()]), el('div', { class: 'org-role' }, [ownerLane.role || 'the person running this board'])]),
-          el('span', { class: 'chip chip-neutral' }, [String(openN) + ' open']),
-        ]),
-      ]));
+      chart.appendChild(row);
     }
-    main.appendChild(grid);
+    main.appendChild(chart);
   }
 
   /* ================= BOARD ================= */
@@ -1456,26 +1657,61 @@
       displayItems = displayItems.filter((i) => i.lane === state.board.laneFilter);
     }
 
-    const columnsWrap = el('div', { class: 'board-columns' });
-    let anyColumn = false;
-    statusOrder().forEach((key) => {
-      const colItems = displayItems.filter((i) => i.status === key);
-      if (!colItems.length) return;
-      anyColumn = true;
-      const statuses = ctx && ctx.statuses;
-      const label = (statuses && statuses[key] && statuses[key].name) || key;
-      const col = el('div', { class: 'board-column' });
-      col.appendChild(el('div', { class: 'board-column-head' }, [
-        el('span', {}, [label]),
-        el('span', { class: 'badge-count' }, [String(colItems.length)]),
-      ]));
-      const body = el('div', { class: 'board-column-body' });
-      colItems.forEach((item) => body.appendChild(renderItemCard(item, wYou)));
-      col.appendChild(body);
-      columnsWrap.appendChild(col);
-    });
-    if (!anyColumn) columnsWrap.appendChild(el('div', { class: 'empty-state' }, ['no items match this view']));
-    main.appendChild(columnsWrap);
+    // Jira-style swimlanes: one row per AI employee, one column per status. Every
+    // registered agent gets a row even at zero tasks, so the whole fleet is visible
+    // at a glance; a lane header is a button that pops up that agent's state.
+    const activeStatuses = statusOrder().filter((k) => displayItems.some((i) => i.status === k));
+    if (!activeStatuses.length) {
+      main.appendChild(el('div', { class: 'empty-state' }, ['no items match this view']));
+    } else {
+      const laneIds = agentList().map((a) => a.id);
+      displayItems.forEach((i) => { if (!laneIds.includes(i.lane)) laneIds.push(i.lane); });
+      const template = '190px repeat(' + activeStatuses.length + ', minmax(168px, 1fr))';
+
+      const legend = el('div', { class: 'swim-legend' },
+        activeStatuses.map((k) => el('span', { class: 'swim-legend-item' }, [
+          el('span', { class: 'am-task-dot ' + statusDotClass(k) }), statusLabel(k),
+        ])));
+      main.appendChild(legend);
+
+      const scroller = el('div', { class: 'swimboard-scroll' });
+      const board = el('div', { class: 'swimboard' });
+
+      const head = el('div', { class: 'swim-row swim-head', style: 'grid-template-columns:' + template });
+      head.appendChild(el('div', { class: 'swim-corner' }, ['Agent']));
+      activeStatuses.forEach((k) => head.appendChild(el('div', { class: 'swim-colhead' }, [
+        el('span', {}, [statusLabel(k)]),
+        el('span', { class: 'badge-count' }, [String(displayItems.filter((i) => i.status === k).length)]),
+      ])));
+      board.appendChild(head);
+
+      laneIds.forEach((lane) => {
+        const laneItems = displayItems.filter((i) => i.lane === lane);
+        const isAgent = agentList().some((a) => a.id === lane);
+        const row = el('div', { class: 'swim-row', style: 'grid-template-columns:' + template });
+
+        const st = agentState(lane);
+        const laneHead = el(isAgent ? 'button' : 'div', { class: 'swim-lane' + (isAgent ? '' : ' swim-lane-static') }, [
+          el('div', { class: 'swim-avatar', style: 'background:hsl(' + hashHue(lane) + ' 55% 42%)' }, [laneDisplayName(lane).slice(0, 1)]),
+          el('div', { class: 'swim-lane-body' }, [
+            el('div', { class: 'swim-lane-name' }, [laneDisplayName(lane)]),
+            el('div', { class: 'swim-lane-role' }, [isAgent ? (agentRole(lane) || 'agent') : 'you']),
+          ]),
+          isAgent ? el('span', { class: 'state-pill ' + st.cls }, [st.label]) : null,
+        ]);
+        if (isAgent) laneHead.addEventListener('click', () => openAgentModal(lane));
+        row.appendChild(laneHead);
+
+        activeStatuses.forEach((k) => {
+          const cell = el('div', { class: 'swim-cell' });
+          laneItems.filter((i) => i.status === k).forEach((it) => cell.appendChild(renderItemCard(it, wYou)));
+          row.appendChild(cell);
+        });
+        board.appendChild(row);
+      });
+      scroller.appendChild(board);
+      main.appendChild(scroller);
+    }
 
     // Default the detail to whatever needs the owner, not to whatever sorted
     // first, but only among items actually on the board right now.
@@ -1505,7 +1741,7 @@
     if (item.waitingOn) metaBits.push('waiting on: ' + item.waitingOn);
     const children = [
       el('div', { class: 'item-title' }, [pendingHere ? el('span', { class: 'waiting-badge' }) : null, item.title]),
-      el('div', { class: 'item-meta' }, [laneDisplayName(item.lane) + ' · ' + item.kind]),
+      el('div', { class: 'item-meta' }, [item.kind]),
     ];
     if (metaBits.length) children.push(el('div', { style: 'font-size:11px; color:var(--ink-faint); margin-top:4px' }, [metaBits.join(' · ')]));
     if (item.tag) children.push(el('div', { style: 'margin-top:5px' }, [el('span', { class: 'chip chip-neutral' }, [item.tag])]));

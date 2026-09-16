@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node serve.mjs",
     "seed": "node serve.mjs --seed",
+    "northwind": "node northwind.mjs",
     "test": "node acceptance/run.mjs",
     "accept": "node acceptance/run.mjs",
     "demo:cascade": "node demo-cascade.mjs",

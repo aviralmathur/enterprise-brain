@@ -14,7 +14,7 @@ and openable; see the [**walkthrough**](docs/walkthrough.md).
 
 | Fleet Mission Control | Platform Mission Control |
 |---|---|
-| [![Fleet Mission Control](docs/img/fleet-mission-control.png)](docs/walkthrough.md) | [![Platform Mission Control](docs/img/platform-mission-control.png)](docs/walkthrough.md) |
+| [![Fleet Mission Control](docs/img/northwind-board.png)](docs/walkthrough.md) | [![Platform Mission Control](docs/img/platform-mission-control.png)](docs/walkthrough.md) |
 
 The one thing that makes this a brain and not a wiki — correct an output and
 everything derived from it goes stale by itself, and a derived output's audience is

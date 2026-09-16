@@ -21,7 +21,7 @@ that kit teaches how *one* agent behaves; this one builds the *org* those agents
 >
 > | Fleet Mission Control | Platform Mission Control |
 > |---|---|
-> | [![Fleet Mission Control](platform/docs/img/fleet-mission-control.png)](platform/docs/walkthrough.md) | [![Platform Mission Control](platform/docs/img/platform-mission-control.png)](platform/docs/walkthrough.md) |
+> | [![Fleet Mission Control](platform/docs/img/northwind-board.png)](platform/docs/walkthrough.md) | [![Platform Mission Control](platform/docs/img/platform-mission-control.png)](platform/docs/walkthrough.md) |
 >
 > ```bash
 > cd platform && node serve.mjs --seed   # then open /fleet and /platform
