@@ -43,6 +43,37 @@ knowledge layer is a third tier* plus a pointer; the contract belongs to the lib
 
 ## Resolved
 
+### ✅ kit · `validate.sh` mis-parsed every roster it was pointed at — fixed 2026-09-16
+Two defects in the roster parser, each harmless alone and compounding badly together. Run
+against a real 16-agent fleet on Windows, `validate.sh` reported **28 errors, 26 of them
+false**; it named namespaces that exist as missing, and called correctly-filed notes unowned.
+
+1. **CRLF.** Rows were split with `body="${body%|}"`. On a CRLF checkout the `\r` sits *after*
+   the closing pipe, so the pipe was never stripped, `awk -F'|' '{print $NF}'` returned the
+   empty field beyond it, and **the last column — the memory namespace — read back empty on
+   every row**. Each row then fell through to `[ -z "$ns" ] && ns="$name"`, silently deriving
+   the namespace from the display name.
+2. **Space-delimited sets.** `AGENTS` and `NAMESPACES` were space-padded strings tested with
+   `*" $x "*` — a shape that cannot hold a value containing a space. Combined with (1), the
+   agent `Nick Fury` became two agents, `nick` and `fury`, neither with a namespace on disk.
+   A roster of 16 reported 22.
+
+Both were invisible to CI: the runner checks out LF, and every agent in `example/` is a single
+word — precisely the case where the fallback in (1) happens to produce the right answer. The
+first fleet with a two-word agent name was the first to hit it.
+
+Fixed by parsing each agent into one TAB-separated `name / slug / namespace` record in a
+newline-delimited list, stripping `\r` per row, and replacing every space-padded membership
+test with an exact-match `in_set`. A third latent defect went with it: `[[wikilink]]`
+resolution was a **substring** test, so `[[batman]]` resolved against a note named
+`batman-hourly-brief` and a genuinely broken link passed whenever some longer note name
+happened to contain it. It is now an exact match.
+
+Guarded by **`./validate.sh --selftest`**, which builds a throwaway fleet with CRLF endings and
+a two-word agent name — the two things `--example` structurally cannot carry — and is wired
+into CI beside `--example`. It fails against the pre-fix parser and passes against this one.
+
+
 ### ✅ platform · five cross-tenant integrity defects — fixed 2026-09-15
 An adversarial review of `platform/` found five ways an unvetted employee fleet could reach
 across the tenant boundary through a feature that trusted its input. Each is now fixed, and each

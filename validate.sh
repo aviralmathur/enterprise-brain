@@ -21,6 +21,9 @@
 #   6. _shared/ is inside its budget, and a budget exists at all
 #   7. every [[wikilink]] resolves
 #   8. no org-level {{PLACEHOLDER}} survives in an installed skill
+#
+# Roster rows are parsed CR-tolerantly (a CRLF checkout used to blank the last column) and
+# an agent's name may contain spaces (it used to be split into two agents).
 
 set -uo pipefail   # deliberately not -e: collect every failure, don't stop at the first
 
@@ -29,6 +32,89 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "${1:-}" = "--example" ]; then
   AGENTS_ROOT="$here/example/agents"
   MEM_ROOT="$here/example/memory"
+fi
+
+# -- --selftest ---------------------------------------------------------------------
+# Builds a throwaway fleet carrying the two things --example cannot: CRLF line endings,
+# and an agent whose display name contains a space. Both defects once shipped, and both
+# were invisible here -- the CI runner checks out LF, and every example agent is a single
+# word, where deriving the namespace from the name happens to give the right answer.
+if [ "${1:-}" = "--selftest" ]; then
+  t="$(mktemp -d)" || exit 1
+  trap 'rm -rf "$t"' EXIT
+  mkdir -p "$t/agents/_control" "$t/memory/_shared" "$t/memory/nick-fury" "$t/memory/athena"
+
+  crlf() { awk '{ printf "%s\r\n", $0 }' > "$1"; }   # write the fixture with CRLF endings
+
+  crlf "$t/agents/_control/roster.md" <<'FIXTURE'
+# Roster
+
+| Agent | Owns | Routes through | Identity | Memory namespace |
+|---|---|---|---|---|
+| **Nick Fury** | the talent lane | -> principal | internal | `nick-fury/` |
+| **Athena** | routing | -> principal | internal | `athena/` |
+FIXTURE
+  crlf "$t/agents/_control/routing.md" <<'FIXTURE'
+# Routing
+
+- hiring, panels -> Nick Fury
+- anything else -> Athena
+FIXTURE
+  for f in how-we-work who environment; do crlf "$t/agents/_control/$f.md" <<'FIXTURE'
+placeholder
+FIXTURE
+  done
+  crlf "$t/agents/_control/memory-model.md" <<'FIXTURE'
+# Memory model
+
+Budget: 20 KB
+FIXTURE
+  crlf "$t/memory/MEMORY.md" <<'FIXTURE'
+# MEMORY
+FIXTURE
+  crlf "$t/memory/nick-fury/a-note.md" <<'FIXTURE'
+---
+owner: nick-fury
+---
+A note owned by an agent whose name has a space in it.
+FIXTURE
+  crlf "$t/memory/athena/b-note.md" <<'FIXTURE'
+---
+owner: athena
+---
+A note.
+FIXTURE
+
+  printf 'enterprise-brain \xc2\xb7 validate --selftest\n'
+  out="$(AGENTS_ROOT="$t/agents" MEM_ROOT="$t/memory" SKILLS_DIR="" bash "$here/validate.sh" 2>&1)"
+  code=$?
+  fails=0
+  say_ok()   { printf '  \xe2\x9c\x93 %s\n' "$1"; }
+  say_fail() { printf '  \xe2\x9c\x97 %s\n' "$1"; fails=1; }
+
+  case "$out" in
+    *"2 agents: Nick Fury, Athena"*) say_ok "a two-word agent name parses as one agent" ;;
+    *) say_fail "a two-word agent name did not parse as one agent" ;;
+  esac
+  case "$out" in
+    *"'nick fury/'"*|*"'nick/'"*|*"nick-fury does not exist"*)
+      say_fail "the namespace was derived from the name, not the last column" ;;
+    *) say_ok "the namespace is read from the last column through CRLF endings" ;;
+  esac
+  case "$out" in
+    *"owner: 'nick-fury' is not an agent"*)
+      say_fail "a hyphenated owner: did not resolve to its agent" ;;
+    *) say_ok "a hyphenated owner: resolves to its agent" ;;
+  esac
+  if [ "$code" -ne 0 ]; then
+    say_fail "the fixture fleet did not validate clean"
+    printf '%s\n' "$out" | sed 's/^/      /'
+  else
+    say_ok "the fixture fleet validates clean"
+  fi
+
+  if [ "$fails" -eq 0 ]; then printf '\nselftest passed\n'; exit 0; fi
+  printf '\nselftest FAILED\n'; exit 1
 fi
 
 expand() { local p="$1"; printf '%s' "${p/#\~/$HOME}"; }
@@ -45,6 +131,13 @@ hdr()  { printf '\n%s\n' "$*"; }
 
 lower()  { tr '[:upper:]' '[:lower:]'; }
 plural() { [ "$1" -eq 1 ] && printf '%s' "$2" || printf '%ss' "$2"; }
+
+NL=$'\n'
+TAB=$'\t'
+CR=$'\r'
+# Exact membership in a NEWLINE-delimited set. These sets were once space-padded strings
+# tested with *" $x "*, a shape that cannot hold a value containing a space — see §2.
+in_set() { case "$NL$2$NL" in *"$NL$1$NL"*) return 0 ;; esac; return 1; }
 
 printf 'enterprise-brain · validate\n'
 printf '───────────────────────────\n'
@@ -68,12 +161,22 @@ routing="$control/routing.md"
 # ── 2 · parse the roster ─────────────────────────────────────────────────────────────
 # One row per agent: name in column 1, memory namespace in the last column. Rows carrying
 # an unfilled {{PLACEHOLDER}} are template scaffolding, not agents — skip them.
+#
+# Each agent becomes one TAB-separated record — display name, slug, namespace — in a
+# NEWLINE-delimited list. This was once two space-padded strings, which silently split
+# every multi-word name in two: "Nick Fury" parsed as the agents `nick` and `fury`, and a
+# roster of 16 reported 22. A record per line is the only shape that survives a space in a
+# name. The example fleet never caught it because its agents are all single-word — and on
+# a single-word roster the namespace fallback below happens to produce the right answer.
 hdr "2 · roster"
-AGENTS=""      # space-padded set of agent slugs, e.g. " alfred athena scout "
-NAMESPACES=""  # matching set of namespace folder names
+ROWS=""        # one record per agent: name<TAB>slug<TAB>namespace
 
 if [ -f "$roster" ]; then
   while IFS= read -r line; do
+    # A CRLF checkout leaves the \r AFTER the row's closing pipe, so the `${body%|}` below
+    # would not strip that pipe, the last column would read back empty on every row, and
+    # every namespace would silently fall back to the display name.
+    line="${line%$CR}"
     case "$line" in
       *'|'*) : ;;      # only table rows
       *) continue ;;
@@ -102,18 +205,20 @@ if [ -f "$roster" ]; then
     ns="${ns%/}"; ns="${ns##*/}"
     ns="$(printf '%s' "$ns" | lower)"
 
-    slug="$(printf '%s' "$name" | lower)"
-    AGENTS="$AGENTS$slug "
-    NAMESPACES="$NAMESPACES$ns "
+    # slug: the display name as one token — "Nick Fury" → nick-fury, which is both the
+    # conventional folder name and what an owner: line carries.
+    slug="$(printf '%s' "$name" | lower | tr ' ' '-')"
+    ROWS="$ROWS$name$TAB$slug$TAB$ns$NL"
   done < "$roster"
 fi
 
-AGENTS=" $AGENTS"; NAMESPACES=" $NAMESPACES"
-n_agents="$(printf '%s' "$AGENTS" | wc -w | tr -d ' ')"
-if [ "$n_agents" -eq 0 ]; then
+AGENT_SLUGS="$(printf '%s' "$ROWS" | cut -f2)"
+NAMESPACES="$(printf '%s' "$ROWS" | cut -f3)"
+n_agents="$(printf '%s' "$ROWS" | grep -c . || true)"
+if [ "${n_agents:-0}" -eq 0 ]; then
   warn "no agents parsed from roster.md — is it still all template rows?"
 else
-  ok "$n_agents $(plural "$n_agents" agent): $(printf '%s' "$AGENTS" | sed 's/^ *//;s/ *$//')"
+  ok "$n_agents $(plural "$n_agents" agent): $(printf '%s' "$ROWS" | cut -f1       | awk 'NR>1{printf ", "}{printf "%s", $0}')"
 fi
 
 # ── 3 · every roster row has a routing entry ─────────────────────────────────────────
@@ -121,26 +226,34 @@ hdr "3 · roster → routing  (an agent no work can reach)"
 if [ ! -f "$routing" ]; then
   err "routing.md missing — cannot check"
 else
-  routing_l="$(lower < "$routing")"
+  routing_l="$(lower < "$routing" | tr -d "$CR")"
   missing=0
-  for a in $AGENTS; do
+  # A roster may spell an agent "Nick Fury" where routing.md says nick-fury, or names only
+  # its namespace — any of the three spellings counts as reachable.
+  while IFS="$TAB" read -r r_name r_slug r_ns; do
+    [ -z "$r_name" ] && continue
+    r_lname="$(printf '%s' "$r_name" | lower)"
     case "$routing_l" in
-      *"$a"*) : ;;
-      *) warn "'$a' is on the roster but never named in routing.md"; missing=1 ;;
+      *"$r_lname"*|*"$r_slug"*|*"$r_ns"*) : ;;
+      *) warn "'$r_name' is on the roster but never named in routing.md"; missing=1 ;;
     esac
-  done
+  done <<EOF
+$ROWS
+EOF
   [ "$missing" -eq 0 ] && ok "every agent appears in routing.md"
 fi
 
 # ── 4 · roster ↔ namespace folders, both directions ──────────────────────────────────
 hdr "4 · roster ↔ memory namespaces"
-set -- $NAMESPACES
 missing=0
-for ns in "$@"; do
+while IFS= read -r ns; do
+  [ -z "$ns" ] && continue
   if [ ! -d "$MEM_ROOT/$ns" ]; then
     err "roster names namespace '$ns/' but $MEM_ROOT/$ns does not exist"; missing=1
   fi
-done
+done <<EOF
+$NAMESPACES
+EOF
 [ "$missing" -eq 0 ] && [ "$n_agents" -gt 0 ] && ok "every roster namespace exists on disk"
 
 orphans=0
@@ -148,10 +261,8 @@ for d in "$MEM_ROOT"/*/; do
   [ -d "$d" ] || continue
   b="$(basename "$d")"
   case "$b" in _*|.*) continue ;; esac        # _shared, _unassigned, dotfiles: reserved
-  case "$NAMESPACES" in
-    *" $(printf '%s' "$b" | lower) "*) : ;;
-    *) warn "'$b/' has notes but no roster row — retired agent, or a row never added?"; orphans=1 ;;
-  esac
+  if in_set "$(printf '%s' "$b" | lower)" "$NAMESPACES"; then :
+  else warn "'$b/' has notes but no roster row — retired agent, or a row never added?"; orphans=1; fi
 done
 [ "$orphans" -eq 0 ] && ok "no orphaned namespace folders"
 
@@ -170,10 +281,9 @@ while IFS= read -r hit; do
     shared) continue ;;
     *'<'*|*'|'*) continue ;;                   # template placeholder, e.g. <agent> | shared
   esac
-  case "$AGENTS" in
-    *" $val "*) : ;;
-    *) err "owner: '$val' is not an agent or 'shared' → ${file#"$MEM_ROOT"/}"; bad_owner=1 ;;
-  esac
+  # An owner: may name the agent (nick-fury) or its namespace — usually the same token.
+  if in_set "$val" "$AGENT_SLUGS" || in_set "$val" "$NAMESPACES"; then :
+  else err "owner: '$val' is not an agent or 'shared' → ${file#"$MEM_ROOT"/}"; bad_owner=1; fi
 done <<EOF
 $(grep -rn '^owner:' --include=*.md "$MEM_ROOT" 2>/dev/null | sed 's/:[0-9]*:/:/')
 EOF
@@ -233,10 +343,10 @@ while IFS= read -r hit; do
           -e 's/|.*//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | lower)"
   [ -z "$link" ] && continue
   n_links=$((n_links+1))
-  case "$TARGETS" in
-    *"$link"*) : ;;
-    *) err "broken [[${link}]] → ${file#"$MEM_ROOT"/}"; broken=1 ;;
-  esac
+  # Exact match: a substring test let [[batman]] resolve against batman-hourly-brief, so a
+  # genuinely broken link passed whenever a longer note name happened to contain it.
+  if in_set "$link" "$TARGETS"; then :
+  else err "broken [[${link}]] → ${file#"$MEM_ROOT"/}"; broken=1; fi
 done <<EOF
 $(grep -ro '\[\[[^]]*\]\]' --include=*.md "$MEM_ROOT" 2>/dev/null)
 EOF
