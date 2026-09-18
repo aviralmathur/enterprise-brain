@@ -54,3 +54,26 @@ An integrity defect in `platform/` (a way one fleet reaches another's data, wide
 skips a gate) is the most valuable thing you can file. Describe the attack as a sequence of
 `ledger` / `gateway` / board calls — ideally as a failing check — and it goes straight into the
 adversarial phase.
+
+## Getting in touch
+
+Contributions are welcome, and you are encouraged to make contact before writing much code —
+a short note about what you intend to change will save you from building something that turns
+out to be out of scope, or that someone is already mid-way through.
+
+**Email: aviral@fdefieldguide.com.** Contributors reach out directly and get a reply.
+
+Worth a mail before you start if you are:
+
+- planning a change large enough that you would not want it turned down on approach
+- unsure whether your change belongs in `skills/` or `platform/` — they share a name and an
+  idea, not a codebase
+- adopting the kit for a real org and something in it fought you; that feedback is more useful
+  than most patches
+- unsure whether what you have found is a defect or a design decision
+
+Small, obvious fixes — a typo, a broken link, a failing check — need no introduction. Open the
+PR.
+
+For anything security-related, use the private channel in [`SECURITY.md`](SECURITY.md) rather
+than a public issue or PR.
