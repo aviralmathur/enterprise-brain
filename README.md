@@ -255,6 +255,16 @@ What is *not* solved is written down too —
 [`platform/README.md` § Known gaps](platform/README.md) and
 [`KNOWN-ISSUES.md`](KNOWN-ISSUES.md). A gap you can read beats a claim you can't.
 
+## Contributing
+
+Contributions are welcome. **Email aviral@fdefieldguide.com** — contributors reach out
+directly and get a reply. Worth doing before a large change, and especially if you adopted the
+kit for a real org and something in it fought you.
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first: `skills/` and `platform/` share a name and an
+idea, not a codebase, and every change comes with a check that was red before it. Security
+findings go through [`SECURITY.md`](SECURITY.md), not a public issue.
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE).

@@ -40,9 +40,11 @@ Report any of these:
 
 ## How to report
 
-**Use GitHub's private vulnerability reporting** — the *Security* tab → *Report a
-vulnerability*. It opens a private thread with the maintainer; nothing is public until it is
-fixed.
+Either of these, whichever you prefer:
+
+- **GitHub private vulnerability reporting** — the *Security* tab → *Report a vulnerability*.
+  It opens a private thread with the maintainer; nothing is public until it is fixed.
+- **Email: aviral@fdefieldguide.com.** Reports reach the maintainer directly and get a reply.
 
 Please do **not** open a public issue or PR for an instruction-level finding. A public diff
 that spells out a working injection is itself the payload.
