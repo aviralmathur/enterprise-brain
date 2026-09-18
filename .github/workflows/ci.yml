@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Every job here only reads the checkout. Stated explicitly rather than inherited from the
+# repo's default-token setting, so a later settings change cannot silently hand CI a write
+# token. Anything that ever legitimately needs more (a deploy, a paid API call) belongs in
+# its own workflow behind a manual trigger — never on a pull_request trigger, and never via
+# pull_request_target, which would run fork code with this repo's secrets in scope.
+permissions:
+  contents: read
+
 jobs:
   # The platform reference implementation: its own acceptance suite is the contract.
   # "A phase that cannot pass its check has not shipped, whatever the code says."
